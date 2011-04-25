@@ -25,6 +25,7 @@ typedef struct {
     int fd;
     char *buffer;
     int last;
+    char *path;
 } client;
 
 int run(int argc, char** args);

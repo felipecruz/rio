@@ -2,11 +2,6 @@
 
 struct epoll_event ev, events[MAX_EVENTS];
 int conn_sock, nfds, epollfd;
-
-char *default_response = 
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %d\r\n\n";
-char *body = "<html><head><title>Test</title></head><body><h1>Response</h1><p>Response Test</p></body></html>"; 
-
 client *clients;
 
 static int on_message(http_parser *parser) {
@@ -22,6 +17,13 @@ static int on_query_string(http_parser *parser, const char *at, size_t len) {
 }
 
 static int on_url(http_parser *parser, const char *at, size_t len) {
+    client *client = parser->data;
+    client->path = malloc(sizeof(char) * len);
+    if (client->path == NULL) {
+        error_exit("Can not malloc...");
+    }
+    strncpy(client->path,at, len);
+    client->path[strlen(client->path)] = '\0';
     return 0;
 }
 
@@ -65,6 +67,9 @@ void handle_write(client *cli, char* resp) {
     //copy response to client buffer and null terminate content
     strcpy((char *)cli->buffer,resp);
     cli->buffer[strlen(resp)] = '\0';
+
+    //free response since already copied to user buffer
+    free(resp);
     
     //set event to write and event fd to client fd
     ev.events = EPOLLOUT;
@@ -133,6 +138,7 @@ void handle_http(struct epoll_event event, client *cli) {
     size_t n;
     char buf[4096], resp[1024];
     int chosen;
+    char *response;
     if (event.events & EPOLLIN) {
         //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
@@ -142,7 +148,7 @@ void handle_http(struct epoll_event event, client *cli) {
         int received = handle_read(cli, &event);
         
         //set parser data
-        parser->data = (void*)cli->buffer;    
+        parser->data = (void*)cli;    
         
         //execute http parsing
         n = http_parser_execute(parser, &parser_settings, cli->buffer, received);
@@ -154,14 +160,19 @@ void handle_http(struct epoll_event event, client *cli) {
             epoll_ctl(epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
             close(event.data.fd);
         }
+
+        free(cli->buffer);
+
+        response = dispatch(cli, cli->path); 
+
         //generate response
-        sprintf(resp,default_response,strlen(body));
+        //sprintf(resp,default_response,strlen(body));
         
         //remove read events from fd
         epoll_ctl(epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
 
         //write response
-        handle_write(cli, strcat(resp,body));
+        handle_write(cli, response);
     } else if (event.events & EPOLLOUT) {
         //if socket is ready to write, do it!
         do_write(cli, &event);
@@ -261,7 +272,7 @@ int run(int argc, char** args) {
                 
                 //set client events
                 ev.events = EPOLLIN;
-                ev.data.fd = conn_soick;
+                ev.data.fd = conn_sock;
 
                 //add socket to epoll
                 if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
