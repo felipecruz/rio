@@ -1,7 +1,7 @@
 all: http_parser.o
-	gcc http-parser/http_parser.o src/utils.c src/dispatch.c src/network.c src/rio.c -o rio
+	gcc http-parser/http_parser.o src/utils.c src/dispatch.c src/static.c src/network.c src/rio.c -lrt -lpcre -o rio
 debug:
-	gcc http-parser/http_parser.o -g src/utils.c src/dispatch.c src/network.c src/rio.c -o rio
+	gcc http-parser/http_parser.o -g src/utils.c src/dispatch.c src/static.c src/network.c src/rio.c -lrt -lpcre -o rio
 
 
 HTTP_PARSER_DIR=http-parser

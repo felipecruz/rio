@@ -18,12 +18,17 @@ static int on_query_string(http_parser *parser, const char *at, size_t len) {
 
 static int on_url(http_parser *parser, const char *at, size_t len) {
     client *client = parser->data;
-    client->path = malloc(sizeof(char) * len);
+
+    //printf("data: %s\n", at);
+
+    client->path = (char*)malloc( (size_t)(sizeof(char) * len + 1));
     if (client->path == NULL) {
         error_exit("Can not malloc...");
     }
-    strncpy(client->path,at, len);
-    client->path[strlen(client->path)] = '\0';
+
+    strncpy(client->path, at, len);
+    client->path[len] = '\0';
+    //printf("%s %d\n", client->path, len);
     return 0;
 }
 
@@ -60,14 +65,35 @@ http_parser_settings parser_settings = {
 
 void handle_write(client *cli, char* resp) {
     struct epoll_event ev;
-    
-    //allocate buffer for write data
-    cli->buffer = malloc(sizeof(char) * strlen(resp)+1);
-    
-    //copy response to client buffer and null terminate content
-    strcpy((char *)cli->buffer,resp);
-    cli->buffer[strlen(resp)] = '\0';
+    int s;
 
+    // remove valgrind warning!!!
+    memset(&ev, 0, sizeof(ev)); 
+
+    if (cli->last > 0) {
+        printf("append to buffer!!!!\n");
+    }
+
+    if (cli->buffer != NULL) {
+        //free(cli->buffer);
+        //cli->buffer = NULL;
+        printf("realloc...\n");
+        cli->t++;
+        s = (int) strlen(cli->buffer);       
+        cli->buffer = realloc(cli->buffer,s + (sizeof(char) * strlen(resp)+1));
+        strcpy(cli->buffer, strcat(cli->buffer, resp));        
+    } else {  
+        //allocate buffer for write data
+        cli->buffer = malloc(sizeof(char) * strlen(resp)+1);
+     
+        //printf("handle write: %d %s\n", cli->fd, cli->buffer);
+       
+        //copy response to client buffer and null terminate content
+        strcpy((char *)cli->buffer,resp);
+    }
+
+    cli->buffer[strlen(resp)-1] = '\0';
+    
     //free response since already copied to user buffer
     free(resp);
     
@@ -82,17 +108,31 @@ void handle_write(client *cli, char* resp) {
     memcpy(&clients[cli->fd],cli, sizeof(client));
     
     //add client to write event
-    epoll_ctl(epollfd, EPOLL_CTL_ADD, cli->fd, &ev);
+    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, cli->fd, &ev) == -1) {
+        //no problem!!!! do_write will sent as many as needed
+        printf("try again!!!!!!!!");
+        while (epoll_ctl(epollfd, EPOLL_CTL_ADD, cli->fd, &ev) == -1) {
+            usleep(500);
+        }
+    }
+
 }
 
 void do_write(client *cli, struct epoll_event *ev) {
-    int sent;
+    int sent, size;
     char *p;
+
+    //printf("do write: %d %s\n", cli->fd, cli->buffer);
+
+    if (cli->last > 0) {
+        printf("last > 0");
+    }
 
     //set char pointer to client buffer begin
     p = &cli->buffer[cli->last];
-
+    size = (int)strlen(p);
     do { //send until loop conditions
+        printf("will send block?\n");
         sent = send(cli->fd, p , (int)strlen(p), 0);
         if (sent < 0 && errno != EAGAIN) {
             //if error, remove client fd from epoll and close
@@ -103,26 +143,41 @@ void do_write(client *cli, struct epoll_event *ev) {
         //update last and pointer
         cli->last += sent;
         p = &cli->buffer[cli->last];
-    } while (sent != 0 && errno != EAGAIN && errno != EWOULDBLOCK && sent < (int)strlen(p));    
+        //printf("=%d==%d==============================\n", sent, size);
+    } while (sent > 0 && errno != EAGAIN && errno != EWOULDBLOCK && cli->last < size);    
 
     //remove client from write, close and free client buffer
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->fd, ev);
     close(cli->fd);
     free(cli->buffer);
+    free(cli->path);
+    cli->path = NULL;
+    cli->buffer = NULL;
+    cli->last = 0;
+    cli->state = 0;
+    cli->t = 0;
+    memcpy(&clients[cli->fd], cli, sizeof(client));
+
 }
 
 int handle_read(client *cli, struct epoll_event *ev) {
     size_t len = 4096;
     char *p;
     ssize_t received;
+    
+    cli->state = 1;
+    if (cli->buffer != NULL) {
+        //free(cli->buffer);
+        //printf("Buff not null %s\n", cli->buffer);
+    }
 
     //allocate space for data
-    cli->buffer = (char*)malloc(sizeof(char) * 4096);
+    cli->buffer = (char*)malloc( (size_t)(sizeof(char) * 4096) );
     p = cli->buffer;
 
     do { //read until loop conditions
         received = recv(ev->data.fd, p, len, 0);
-        if (received < 0 && errno != EAGAIN) {
+        if (received < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
             //if error, remove from epoll and close socket
             printf("Handle error!!!\nClient disconnected!\n");
             epoll_ctl(epollfd, EPOLL_CTL_DEL, ev->data.fd, ev);
@@ -139,6 +194,7 @@ void handle_http(struct epoll_event event, client *cli) {
     char buf[4096], resp[1024];
     int chosen;
     char *response;
+    int l = 0;
     if (event.events & EPOLLIN) {
         //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
@@ -161,18 +217,23 @@ void handle_http(struct epoll_event event, client *cli) {
             close(event.data.fd);
         }
 
-        free(cli->buffer);
-
         response = dispatch(cli, cli->path); 
-
-        //generate response
-        //sprintf(resp,default_response,strlen(body));
-        
+       
+        //printf("%s\n=====================================\n", cli->buffer);
         //remove read events from fd
         epoll_ctl(epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
-
-        //write response
-        handle_write(cli, response);
+        
+        l = (int)strlen(response);
+        if (l > 2) {                
+            //write response
+            handle_write(cli, response);
+        }
+        free(cli->path);
+        cli->path = NULL;
+        free(parser);
+        //free(cli->buffer);
+        free(response);
+        printf("XX\n");
     } else if (event.events & EPOLLOUT) {
         //if socket is ready to write, do it!
         do_write(cli, &event);
@@ -184,8 +245,10 @@ void init_clients() {
     clients = calloc(MAX_EVENTS, sizeof(client));
     for(i = 0; i < MAX_EVENTS; i++) {
         clients[i].fd = 0;
-        //clients[i].buffer = malloc(sizeof(char) * 4096);
+        clients[i].buffer = NULL;
         clients[i].last = 0;
+        clients[i].state = 0;
+        //bzero(clients[i].offsets, sizeof(int) * 100);
     }
 }
 
@@ -246,7 +309,8 @@ int run(int argc, char** args) {
  
     for (;;) {
         //poll events
-        nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+        printf("will epoll block?\n");
+        nfds = epoll_wait(epollfd, events, MAX_EVENTS, 100);
         if (nfds == -1 && errno != EWOULDBLOCK) {
             error_exit("epoll_pwait");
         }
@@ -287,7 +351,18 @@ int run(int argc, char** args) {
             else {
                 //retrieve client info by fd and handle event
                 cli = clients[events[n].data.fd];
-                handle_http(events[n], &cli);
+                printf("Event: %d\n", events[n].events);
+                if (cli.state > 0 && events[n].events == 1) {
+                    printf("Event: %d\n", events[n].events);
+                    /*ev.events = EPOLLIN;
+                    ev.data.fd = cli.fd;
+                    printf("client sent another request but response wasn't sent");
+                    if (epoll_ctl(epollfd, EPOLL_CTL_DEL, events[n].data.fd, &ev) == -1) {
+                        error_exit("Could not add conn_sock to epoll");
+                    }*/
+                } else {
+                    handle_http(events[n], &cli);
+                }
             }
         }
     }

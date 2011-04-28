@@ -26,8 +26,14 @@ typedef struct {
     char *buffer;
     int last;
     char *path;
+    int state;
+    int t;
+    int offsets[100];
 } client;
 
 int run(int argc, char** args);
+
+void handle_write(client *cli, char* resp);
+
 #else
 #endif
