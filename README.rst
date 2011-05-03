@@ -21,6 +21,14 @@ Ubuntu::
     
     sudo apt-get install libpcre3 libpcre3-dev
 
+Building
+--------
+
+Open terminal::
+    
+    make
+
+
 send me an email: felipecruz@loogica.net
 
 .. _zeromq-libzapi: http://libzapi.zeromq.org/manual:libzapi
