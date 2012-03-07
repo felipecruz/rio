@@ -2,39 +2,56 @@
 #include "static.h"
 
 char *default_response = 
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %d\r\n\n%s";
-char *body = "<html><head><title>Test</title></head><body><h1>Response</h1><p>Response Test</p></body></html>"; 
+    "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
+    "Content-Length: %d\r\n\n%s";
 
-const char *static_files_rg = "/(.+\\.[a-zA-Z]{1,3})";
-char * dispatch(client *cli, const char *path) {   
-    pcre *regexp;
-    const char *error;
-    int erroroffset, result=0;
-    int ovector[30];
-    char *buf, *p;
-    const char *filename;
+char *body = 
+    "<html><head><title>Test</title></head><body><h1>Response</h1>"
+    "<p>Response Test</p></body></html>"; 
 
-    regexp = pcre_compile(static_files_rg, 0, &error, &erroroffset, NULL);
-    if (!regexp) {
-        error_exit("Cant compile pcre regex");
-    }
+char* 
+    dispatch(client *cli, char *path) 
+{   
+    char *buf;
     
-    result = pcre_exec(regexp, NULL, path, (int)strlen(path), 0, 0, ovector, 30);
-    if (result > 0) {
-        filename = malloc(sizeof(char) * (ovector[3] - ovector[2]) + 1);
-        p = &path[ovector[2]];
-        strcpy(filename, p); //, ovector[3]+1);
-        //printf("loading: %s\n", filename);
-        handle_static(cli,filename);
-        buf = malloc(sizeof(char)*2);
-        strcpy(buf,""); 
-        free(filename);
+    debug_print("Request URI %s\n", path);
+
+    if (is_filename(path)) {
+        handle_static(cli, path);
+        buf = NULL;
     } else {
         buf = malloc(sizeof(char)*1024);
         sprintf(buf, default_response,strlen(body), body);
-        
     }
-    pcre_free(regexp);
-
     return buf;
 }
+
+int 
+    is_filename(char *path)
+{
+    int path_size = strlen(path);
+    
+    if (strchr(path, '.') != NULL && path_size > 2) {
+        return 1; 
+    }
+
+    return 0;
+}
+#if TEST
+int
+    init_dispatch_test_suite(void)
+{
+    return 0;    
+}
+
+void
+    test_is_filename(void)
+{
+    CU_ASSERT(1 == is_filename("/test/file.c"));
+    CU_ASSERT(1 == is_filename("/test/file.js"));
+    CU_ASSERT(1 == is_filename("/test/file.css"));
+    CU_ASSERT(0 == is_filename("/test/endpoint"));
+
+    return;
+}
+#endif

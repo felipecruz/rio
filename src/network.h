@@ -13,9 +13,10 @@
 #include <stdlib.h>
 #include <memory.h>
 #include "../http-parser/http_parser.h"
+#include "khash.h"
 #include "utils.h"
 
-#define MAX_EVENTS 1000
+#define MAX_EVENTS 128
 #ifndef __NETWORK_H
 #define __NETWORK_H
 
@@ -23,17 +24,16 @@ enum methods { POST, GET };
 
 typedef struct {
     int fd;
+    int keep_alive;
     char *buffer;
-    int last;
     char *path;
-    int state;
-    int t;
-    int offsets[100];
 } client;
 
-int run(int argc, char** args);
+int 
+    run(int argc, char **args);
 
-void handle_write(client *cli, char* resp);
+void 
+    handle_write(client *cli, char *resp);
 
 #else
 #endif

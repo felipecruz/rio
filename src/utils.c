@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "utils.h"
 
 void error_exit(const char *message) {
