@@ -28,4 +28,6 @@ Open terminal::
     
     sudo ./rio
 
+Rio will serve your current directory files - (html, js, css, json)
+
 send me an email: felipecruz@loogica.net
