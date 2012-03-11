@@ -16,6 +16,7 @@ Open terminal::
 Tesing
 --------
 
+Install CUnit (http://cunit.sourceforge.net)
 Open terminal::
     
     make test
