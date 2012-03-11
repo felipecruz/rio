@@ -10,7 +10,7 @@ char *body =
     "<p>Response Test</p></body></html>"; 
 
 char* 
-    dispatch(client *cli, char *path) 
+    dispatch(client *cli, const char *path) 
 {   
     char *buf;
     
@@ -20,7 +20,7 @@ char*
         handle_static(cli, path);
         buf = NULL;
     } else {
-        buf = malloc(sizeof(char)*1024);
+        buf = malloc(sizeof(char) * 1024);
         sprintf(buf, default_response,strlen(body), body);
     }
     return buf;

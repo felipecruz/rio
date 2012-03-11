@@ -28,7 +28,11 @@ static int
     if (client->path == NULL) {
         error_exit("Malloc");
     }    
-    strncpy(client->path, at, len);
+    strncpy(client->path, at, len+1);
+    client->path[len] = '\0';
+
+    debug_print("HTTP-REQ Path: %s %d\n", client->path, len);
+
     return 0;
 }
 
@@ -211,6 +215,7 @@ void handle_http(struct epoll_event event, client *cli) {
             //free(response);
         }
 
+        debug_print("Freeing %s\n", cli->path);
         free(cli->path);
         cli->path = NULL;
         free(parser);
@@ -230,6 +235,19 @@ void
 void
     free_clients()
 {
+    khiter_t element;
+    client *cli;
+
+    debug_print("Closing clients structures\n", h);
+    
+    for (element = kh_begin(h); element != kh_end(h); ++element) {
+        if (kh_exist(h, element)) {
+            debug_print("%p\n", kh_val(h, element));
+            //free(cli);
+            kh_del(clients, h, element);
+        }
+    }
+
     kh_destroy(clients, h);
 }
 int 
@@ -335,7 +353,7 @@ int
                     error_exit("Could not add conn_sock to epoll");
                 }
 
-                cli = malloc(sizeof(client));
+                new(cli, client);
                 //store client information
                 cli->fd = conn_sock;
 
@@ -348,10 +366,11 @@ int
                 k = kh_get(clients, h, events[n].data.fd);
                 *cli = kh_val(h, k);
                 handle_http(events[n], cli);
+                //free(cli);
             }
         }
     }
-    printf("CLEAN EXIT!\n");
+    printf("\nCLEAN EXIT!\n");
     
     free_clients();
     destroy_static_server();

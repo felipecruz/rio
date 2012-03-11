@@ -30,7 +30,7 @@ void
 char*
     extension(char *value);
 
-char*
+const char*
     mime_type(char *value);
 
 #else

@@ -5,7 +5,7 @@
 #define __DISPATCH_H_
 
 char*
-    dispatch(client *cli, char *path);
+    dispatch(client *cli, const char *path);
 
 void
     init_dispatcher(void);

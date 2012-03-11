@@ -12,7 +12,7 @@ char *default_four_zero_four =
 char *end_static_response = "\n\n";
 
 KHASH_MAP_INIT_STR(files, cached_file)
-khash_t(files) *f = NULL;
+khash_t(files) *f;
 
 void
     init_static_server()
@@ -30,9 +30,9 @@ void
     debug_print("Closing open files\n", f);
     
     for (element = kh_begin(f); element != kh_end(f); ++element) {
-        *file = kh_val(f, element);
-        close(file->fd);
-        free(file);
+        if (kh_exist(f, element)) {
+            kh_del(files, f, element);
+        }
     }
 
     kh_destroy(files, f);
@@ -46,18 +46,28 @@ void
     const char pwd[] = ".";
     char *filename;
     char *response;
+    char *fextension;
+    char *dup;
     char buf[1024];
      
     cached_file *file;
     khiter_t element;
-    
-    filename = strcat(pwd, path);
+   
+    //key must be 'duplicated' in order to gain another memory
+    //address
+    filename = malloc(sizeof(char) * (strlen(pwd) + strlen(path) + 1));
+    if (filename == NULL) {
+        error_exit("malloc error");
+    }
+
+    dup = strdup(strcat(pwd, path));
+    strcpy(filename, dup);
+    free(dup);
 
     element = kh_get(files, f, filename);
     missing = (element == kh_end(f));
 
-    debug_print("Serving %s\n", filename);
-
+    debug_print("Serving %s\nMissing: %d\n", filename, missing);
     //file not opened
     if (!missing) {
         debug_print("%s file already opened. sending..\n", filename);
@@ -93,9 +103,16 @@ void
 
     }
     response = malloc(512 * sizeof(char));
-    sprintf(response, default_static_response, (char*) mime_type(extension(filename)),
-                                               (int)file->size);
 
+    fextension = extension(filename);
+
+    debug_print("extension: %s\n", fextension);
+    debug_print("mime type: %s\n", mime_type(fextension));
+
+    sprintf(response, default_static_response, (char*) mime_type(fextension),
+                                               (int) file->size);
+
+    //free(fextension);
     //check_write(
         write(
             cli->fd, 
@@ -112,15 +129,18 @@ void
 
     sendfile(cli->fd, file->fd, NULL, file->size);
 
-    write(
-        cli->fd, 
-        end_static_response, 
-        strlen(end_static_response)
-    );
+    //write(
+    //   cli->fd, 
+    //    end_static_response, 
+    //    strlen(end_static_response)
+    //);
 
     //if (!cli->keep_alive) {
         close(cli->fd);
     //}
+    
+    free(filename);
+    free(response);
 
     return;
 }
@@ -140,25 +160,20 @@ char*
     return p;
 }
 
-char*
+const char*
     mime_type(char *value)
 {
-    char text_html[] = "text/html";
-    char text_css[] = "text/css";
-    char app_json[] = "application/json";
-    char app_js[] = "application/javascript";
-
     if (strcmp(value, "html") == 0) {
-        return text_html;
+        return "text/html\0";
     }
     else if (strcmp(value, "css") == 0) {
-        return text_css;
+        return "text/css\0";
     }
     else if (strcmp(value, "json") == 0) {
-        return app_json;
+        return "application/json\0";
     }
     else if (strcmp(value, "js") == 0) {
-        return app_js;
+        return "application/javascript\0";
     }
 
 }
