@@ -38,6 +38,7 @@ int
     return 0;
 }
 #if TEST
+#include "CUnit/CUnit.h"
 int
     init_dispatch_test_suite(void)
 {

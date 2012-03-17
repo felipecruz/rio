@@ -8,7 +8,6 @@
 #include "utils.h"
 #include "network.h"
 #include "khash.h"
-#include "CUnit/CUnit.h"
 
 #ifndef __STATIC_H_
 #define __STATIC_H_
