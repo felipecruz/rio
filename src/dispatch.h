@@ -1,7 +1,6 @@
 #include <msgpack.h>
 #include <zmq.h>
 #include "network.h"
-#include "CUnit/CUnit.h"
 
 #ifndef __DISPATCH_H_
 #define __DISPATCH_H_

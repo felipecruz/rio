@@ -179,6 +179,7 @@ const char*
 }
 
 #if TEST
+#include "CUnit/CUnit.h"
 int
     init_static_test_suite(void)
 {
