@@ -11,6 +11,8 @@ Building
 
 Open terminal::
     
+    git submodule init
+    git submodule update
     make
 
 Tesing
