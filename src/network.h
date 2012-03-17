@@ -27,6 +27,7 @@ typedef struct {
     int keep_alive;
     char *buffer;
     char *path;
+    unsigned char *method;
 } client;
 
 int 

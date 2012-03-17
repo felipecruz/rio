@@ -1,3 +1,5 @@
+#include <msgpack.h>
+#include <zmq.h>
 #include "network.h"
 #include "CUnit/CUnit.h"
 

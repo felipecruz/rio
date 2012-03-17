@@ -31,6 +31,9 @@ static int
     strncpy(client->path, at, len+1);
     client->path[len] = '\0';
 
+    client->method = parser->method;
+
+    debug_print("HTTP-REQ method: %d\n", client->method);
     debug_print("HTTP-REQ Path: %s %d\n", client->path, len);
 
     return 0;
@@ -82,9 +85,10 @@ void
     handle_write(client *cli, char* resp) 
 {
     struct epoll_event ev;
-    int s;
+    int s, ret;
+    khiter_t k;
 
-    cli->buffer = malloc(sizeof(char) * strlen(resp));
+    cli->buffer = malloc(sizeof(char) * (strlen(resp)+1));
     
     strcpy((char *)cli->buffer, resp);
     cli->buffer[strlen(resp)] = '\0';
@@ -101,6 +105,9 @@ void
             usleep(500);
         }
     }
+    
+    k = kh_put(clients, h, cli->fd , &ret);
+    kh_value(h, k) = *cli;
 
 }
 
@@ -267,6 +274,7 @@ int
     sin.sin_addr.s_addr = inet_addr("0.0.0.0");
 
     init_clients();
+    init_dispatcher();
     init_static_server();
 
     //create socket
