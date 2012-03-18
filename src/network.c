@@ -239,7 +239,6 @@ void
     for (element = kh_begin(h); element != kh_end(h); ++element) {
         if (kh_exist(h, element)) {
             debug_print("%d\n", ((client) kh_val(h, element)).fd);
-            //free(cli);
             kh_del(clients, h, element);
         }
     }
@@ -250,7 +249,7 @@ int
     run(int argc, char** args) 
 {
     
-    client *cli;
+    client cli;
     int flags, arg, n, i, ret;
     struct sockaddr_in sin, temp_client;
     unsigned int client_len;
@@ -350,19 +349,19 @@ int
                     error_exit("Could not add conn_sock to epoll");
                 }
 
-                new(cli, client);
+                //new(cli, client);
                 //store client information
-                cli->fd = conn_sock;
+                cli.fd = conn_sock;
 
                 k = kh_put(clients, h, conn_sock , &ret);
-                kh_value(h, k) = *cli;
+                kh_value(h, k) = cli;
             } 
             //read or write event - handle event
             else {
                 //retrieve client info by fd and handle event
                 k = kh_get(clients, h, events[n].data.fd);
-                *cli = kh_val(h, k);
-                handle_http(events[n], cli);
+                cli = kh_val(h, k);
+                handle_http(events[n], &cli);
                 //free(cli);
             }
         }
@@ -372,7 +371,6 @@ int
     free_clients();
     destroy_static_server();
     destroy_dispatcher();
-    
     close(server_fd);
     exit(0);
 }
