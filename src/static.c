@@ -145,6 +145,14 @@ const char*
     else if (strcmp(value, "js") == 0) {
         return "application/javascript\0";
     }
+    else if (strcmp(value, "png") == 0) {
+        return "image/png\0";
+    }
+    else if (strcmp(value, "jpg") == 0) {
+        return "image/jpg\0";
+    }
+
+
 
 }
 

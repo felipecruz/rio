@@ -39,13 +39,12 @@ void
 char* 
     dispatch(client *cli, char *path) 
 {   
-    char *buf;
+    char *buf = NULL;
     
     debug_print("Request URI %s\n", path);
 
     if (is_filename(path)) {
         handle_static(cli, path);
-        buf = NULL;
     } else {
         int rc;
         zmq_msg_t msg, msg2;
