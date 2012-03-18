@@ -197,7 +197,7 @@ void handle_http(struct epoll_event event, client *cli) {
                 free(cli->path);
                 cli->path == NULL;
             }
-
+            free(parser);
             return;
         }
 
