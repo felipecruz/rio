@@ -31,31 +31,23 @@ static int
     strncpy(client->path, at, len+1);
     client->path[len] = '\0';
 
-    client->method = parser->method;
+    client->method = (unsigned char) parser->method;
 
-    debug_print("HTTP-REQ method: %d\n", client->method);
-    debug_print("HTTP-REQ Path: %s %d\n", client->path, len);
+    debug_print("HTTP-REQ method: %d\n", (int) client->method);
+    debug_print("HTTP-REQ Path: %s %d\n", client->path, (int) len);
 
     return 0;
 }
 
-static int on_query_string(http_parser *parser, const char *at, size_t len) {
+int on_header_field(http_parser *parser, const char *at, size_t len) {
     return 0;
 }
 
-static int on_fragment(http_parser *parser, const char *at, size_t len) {
+int on_header_value(http_parser *parser, const char *at, size_t len) {
     return 0;
 }
 
-static int on_header_field(http_parser *parser, const char *at, size_t len) {
-    return 0;
-}
-
-static int on_header_value(http_parser *parser, const char *at, size_t len) {
-    return 0;
-}
-
-static int on_headers_complete(http_parser *parser) {
+int on_headers_complete(http_parser *parser) {
     return 0;
 }
 
@@ -71,9 +63,6 @@ http_parser_settings parser_settings =
 { 
     on_message, 
     on_path, 
-    on_query_string, 
-    NULL, 
-    NULL, 
     on_header_field,
     on_header_value, 
     on_headers_complete,
@@ -102,7 +91,7 @@ void
         //no problem!!!! do_write will sent as many as needed
         printf("try again!!!!!!!!");
         while (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
-            usleep(500);
+//            usleep(500);
         }
     }
     
@@ -249,7 +238,7 @@ void
     
     for (element = kh_begin(h); element != kh_end(h); ++element) {
         if (kh_exist(h, element)) {
-            debug_print("%p\n", kh_val(h, element));
+            debug_print("%d\n", ((client) kh_val(h, element)).fd);
             //free(cli);
             kh_del(clients, h, element);
         }
@@ -382,6 +371,7 @@ int
     
     free_clients();
     destroy_static_server();
+    destroy_dispatcher();
     
     close(server_fd);
     exit(0);

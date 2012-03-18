@@ -17,13 +17,27 @@ void
     init_dispatcher(void)
 {
     debug_print("Initializing zmq context and publisher\n", context);
+    
     context = zmq_init(1);
+    
     publisher = zmq_socket(context, ZMQ_REQ);
     zmq_bind(publisher, "tcp://127.0.0.1:5555");
 }
 
+void
+    destroy_dispatcher(void)
+{
+    int ret;
+
+    ret = zmq_close(publisher);
+    debug_print("Socket close return %d\n", ret);
+    
+    ret = zmq_term(context);
+    debug_print("Context termination return :%d\n", ret);
+}
+
 char* 
-    dispatch(client *cli, const char *path) 
+    dispatch(client *cli, char *path) 
 {   
     char *buf;
     
@@ -44,7 +58,7 @@ char*
         msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
 
         msgpack_pack_array(pk, 2);
-        msgpack_pack_int(pk, cli->method);
+        msgpack_pack_int(pk, (int) cli->method);
         msgpack_pack_raw(pk, strlen(path));
         msgpack_pack_raw_body(pk, path, strlen(path));
 
@@ -73,7 +87,7 @@ char*
         rc = zmq_recv(publisher, &msg2, 0);
  
         debug_print("zeromq received raw: %s\nsize %d\n", 
-                zmq_msg_data(&msg2), zmq_msg_size(&msg2));
+                    (char *) zmq_msg_data(&msg2), zmq_msg_size(&msg2));
 
         msgpack_unpack_next(&unpacked, 
                             zmq_msg_data(&msg2), 

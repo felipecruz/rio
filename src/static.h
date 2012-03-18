@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include "types.h"
 #include "utils.h"
-#include "network.h"
 #include "khash.h"
 
 #ifndef __STATIC_H_
@@ -15,6 +15,7 @@
 typedef struct {
     size_t size;
     int fd;
+    char *filename;
 } cached_file;
 
 void 

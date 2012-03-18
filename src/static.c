@@ -41,9 +41,9 @@ void
 void
     handle_static(client *cli, char *path) 
 {
-    int ret, num_read, missing, fd;
+    int ret, num_read, fd;
     
-    const char pwd[] = ".";
+    char pwd[2] = ".";
     char *filename;
     char *response;
     char *fextension;
@@ -51,8 +51,8 @@ void
     char buf[1024];
      
     cached_file *file;
-    khiter_t element;
    
+    new(file, cached_file);
     //key must be 'duplicated' in order to gain another memory
     //address
     filename = malloc(sizeof(char) * (strlen(pwd) + strlen(path) + 1));
@@ -64,44 +64,30 @@ void
     strcpy(filename, dup);
     free(dup);
 
-    element = kh_get(files, f, filename);
-    missing = (element == kh_end(f));
 
-    debug_print("Serving %s\nMissing: %d\n", filename, missing);
+    debug_print("Serving %s\n", filename);
     //file not opened
-    if (!missing) {
-        debug_print("%s file already opened. sending..\n", filename);
-        //get from cache
-        *file = kh_val(f, element);
-        //seek to begin
-        lseek(file->fd, 0, SEEK_SET);
-    } else { 
-        struct stat st;
+    struct stat st;
 
-        // open file
-        fd = open(filename, O_RDONLY | O_DIRECT);
-        if (fd == -1) {
-            debug_print("Error opening file %s. 404 response\n", filename);
-            write(cli->fd, 
-                  default_four_zero_four, 
-                  strlen(default_four_zero_four));
-            close(cli->fd);
-            return;
-        }
-        
-        bzero(&st, sizeof(st));
-        stat(filename, &st);
-
-        debug_print("%s file opened\n", filename);
-        new(file, cached_file);
-
-        file->fd = fd;
-        file->size = st.st_size;
-        
-        element = kh_put(files, f, filename, &ret);
-        kh_value(f, element) = *file;
-
+    // open file
+    fd = open(filename, O_RDONLY | O_DIRECT);
+    if (fd == -1) {
+        debug_print("Error opening file %s. 404 response\n", filename);
+        write(cli->fd, 
+                default_four_zero_four, 
+                strlen(default_four_zero_four));
+        close(cli->fd);
+        return;
     }
+    
+    bzero(&st, sizeof(st));
+    stat(filename, &st);
+
+    debug_print("%s file opened\n", filename);
+
+    file->fd = fd;
+    file->size = st.st_size;
+    
     response = malloc(512 * sizeof(char));
 
     fextension = extension(filename);
@@ -109,38 +95,22 @@ void
     debug_print("extension: %s\n", fextension);
     debug_print("mime type: %s\n", mime_type(fextension));
 
-    sprintf(response, default_static_response, (char*) mime_type(fextension),
-                                               (int) file->size);
+    sprintf(response, 
+            default_static_response, 
+            (char*) mime_type(fextension),
+            (int) file->size);
 
-    //free(fextension);
-    //check_write(
-        write(
-            cli->fd, 
-            response, 
-            strlen(response)
-        );
-    //);
-
-    //while ((num_read = read(fileno(file), buf, 1024)) > 0)
-    //    if (write(cli->fd, buf, num_read) != num_read)
-    //        error_exit("write error on file copy");
-    //    else
-    //        total += num_read;
-
+    write(cli->fd, 
+          response, 
+          strlen(response));
+    
     sendfile(cli->fd, file->fd, NULL, file->size);
-
-    //write(
-    //   cli->fd, 
-    //    end_static_response, 
-    //    strlen(end_static_response)
-    //);
-
-    //if (!cli->keep_alive) {
-        close(cli->fd);
-    //}
+    close(cli->fd);
+    close(fd);
     
     free(filename);
     free(response);
+    free(file);
 
     return;
 }
