@@ -77,6 +77,9 @@ void
                 default_four_zero_four, 
                 strlen(default_four_zero_four));
         close(cli->fd);
+
+        free(file);
+        free(filename);
         return;
     }
     

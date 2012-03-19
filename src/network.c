@@ -4,8 +4,6 @@ struct epoll_event ev, events[MAX_EVENTS];
 int server_fd, conn_sock, nfds, epollfd;
 short int INTERRUPTED = 0;
 
-KHASH_MAP_INIT_INT(clients, client)
-khash_t(clients) *h;
 
 void
     sig_proc_exit(int sig)
@@ -89,7 +87,7 @@ void
     
     if (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
         //no problem!!!! do_write will sent as many as needed
-        printf("try again!!!!!!!!");
+        debug_print("try again!!!!!!!!", epollfd);
         while (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
 //            usleep(500);
         }
@@ -144,16 +142,8 @@ int
                 printf("Some other error %d\n", errno);
             }
 
-            //error on server_fd.. don't know yet...
-            if (ev->data.fd != server_fd) {
-                epoll_ctl(epollfd, EPOLL_CTL_DEL, ev->data.fd, ev);
-                close(ev->data.fd);
-        
-                if (cli->buffer != NULL) {
-                    free(cli->buffer);
-                    cli->buffer = NULL;
-                }
-            }
+            //handle_http will take care of this :)
+
         }
     }
     
@@ -164,7 +154,7 @@ void handle_http(struct epoll_event event, client *cli) {
     size_t n;
     char buf[4096], resp[1024];
     int chosen;
-    char *response;
+    int response;
     int l = 0;
     if (event.events & EPOLLIN) {
         //create http parser
@@ -190,12 +180,12 @@ void handle_http(struct epoll_event event, client *cli) {
 
             if (cli->buffer != NULL) {
                 free(cli->buffer);
-                cli->buffer == NULL;
+                cli->buffer = NULL;
             }
 
             if (cli->path != NULL) {
                 free(cli->path);
-                cli->path == NULL;
+                cli->path = NULL;
             }
             free(parser);
             return;
@@ -204,10 +194,10 @@ void handle_http(struct epoll_event event, client *cli) {
         free(cli->buffer);
         response = dispatch(cli, cli->path); 
         
-        if (response != NULL) {                
+        if (response != DISPATCH_FINISHED) {                
             //write response
-            printf("HANDLE WRITE!!!\n");
-            handle_write(cli, response);
+            debug_print("Async Dispatch to fd: %d\n", cli->fd);
+            //handle_write(cli, response);
             //free(response);
         }
 
@@ -365,6 +355,9 @@ int
                 //free(cli);
             }
         }
+
+        dispatch_responses();
+
     }
     printf("\nCLEAN EXIT!\n");
     

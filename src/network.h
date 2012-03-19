@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include "../http-parser/http_parser.h"
-#include "khash.h"
 #include "types.h"
 #include "utils.h"
 #include "dispatch.h"
