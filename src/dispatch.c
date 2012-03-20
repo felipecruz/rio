@@ -69,6 +69,8 @@ void
         memcpy(msgpack_unpacker_buffer(&pac), zmq_msg_data(&msg), zmq_msg_size(&msg));
         msgpack_unpacker_buffer_consumed(&pac, zmq_msg_size(&msg));
 
+        debug_print("ZMQ message length: %d\n", zmq_msg_size(&msg));
+
         /* now starts streaming deserialization. */
         msgpack_unpacked_init(&result);
 
@@ -87,6 +89,8 @@ void
 
         cli.buffer = malloc(sizeof(char) * 1024);
 
+        debug_print("Response to: %d Content:%s\n", cli.fd
+                                                  , cli.buffer);
         sprintf(cli.buffer, 
                 default_response, 
                 _content.via.raw.size, 
@@ -101,11 +105,7 @@ void
         ev.data.fd = cli.fd;
         
         if (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli.fd, &ev) == -1) {
-            //no problem!!!! do_write will sent as many as needed
-            printf("try again!!!!!!!!");
-            while (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli.fd, &ev) == -1) {
-                //usleep(500);
-            }
+            debug_print("Error epoll_ctl_mod  fd: %d\n", cli.fd);
         }
         
         k = kh_put(clients, h, cli.fd , &rc);

@@ -81,16 +81,14 @@ void
     cli->buffer[strlen(resp)] = '\0';
     
     free(resp);
+
+    debug_print("Handle Write: %d : %s\n", cli->fd, cli->buffer);
     
     ev.events = EPOLLOUT;
     ev.data.fd = cli->fd;
     
     if (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
-        //no problem!!!! do_write will sent as many as needed
-        debug_print("try again!!!!!!!!", epollfd);
-        while (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
-//            usleep(500);
-        }
+        debug_print("Error on epoll_ctl_mod on %d\n", cli->fd, epollfd);
     }
     
     k = kh_put(clients, h, cli->fd , &ret);
@@ -101,14 +99,18 @@ void
 void 
     do_write(client *cli, struct epoll_event *ev) 
 {
-    int sent, size;
-    char *p;
+    int sent;
+    
+    debug_print("Do Write: %d : %s\n", cli->fd, cli->buffer);
     
     sent = send(cli->fd, cli->buffer, (int)strlen(cli->buffer), 0);
     if (sent < 0 && errno != EAGAIN) {
-        printf("Client disconnected\n");
+        debug_print("Do Write: send error on fd: %d errno: %d\n", 
+                    cli->fd, errno);
     }
         
+    debug_print("Do Write sent: %d strlen: %d\n", sent, strlen(cli->buffer));
+    
     epoll_ctl(epollfd, EPOLL_CTL_DEL, cli->fd, ev);
     close(cli->fd);
 
@@ -126,7 +128,7 @@ int
     ssize_t received;
 
     //allocate space for data
-    cli->buffer = (char*)malloc( (size_t)(sizeof(char) * 4096) );
+    cli->buffer = (char*)malloc((size_t)(sizeof(char) * 4096));
     received = recv(ev->data.fd, cli->buffer, len, 0);
 
     if (received <= 0) 
@@ -172,7 +174,7 @@ void handle_http(struct epoll_event event, client *cli) {
         if (parser->upgrade) {
             //#TODO: what to do?
         } else if (n != received || received == 0) {
-            printf("Error parsing, closing socket...\n");
+            debug_print("Error parsing, closing socket...\n", epollfd);
             
             //delete fd from epoll and close
             epoll_ctl(epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
@@ -197,15 +199,12 @@ void handle_http(struct epoll_event event, client *cli) {
         if (response != DISPATCH_FINISHED) {                
             //write response
             debug_print("Async Dispatch to fd: %d\n", cli->fd);
-            //handle_write(cli, response);
-            //free(response);
         }
 
         debug_print("Freeing %s\n", cli->path);
         free(cli->path);
         cli->path = NULL;
         free(parser);
-        //epoll_ctl(epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
     } else if (event.events & EPOLLOUT) {
         //if socket is ready to write, do it!
         do_write(cli, &event);
