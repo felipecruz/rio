@@ -2,15 +2,28 @@
 rio - minimalist http server 
 ===============================
 
-rio is a minimalist http server that act as broker between browsers and your (python, ruby and others) workers
+**this project is a work in progress**
 
-this project is a work in progress
+rio is a minimalist http server that act as broker between browsers and your (python, ruby and others) workers.
 
-Dependencies
+If you're looking for similar projects, you should check:
+
+* Mongrel2 (http://mongrel2.org/)
+* zerogw (https://github.com/tailhook/zerogw)
+
+
+External Dependencies and thanks to the Authors of:
 ------------
 
 * zeromq (http://zeromq.org) 
 * msgpack (http://msgpack.org)
+
+
+Embedded libraries
+-----------------
+
+* khash from klib (https://github.com/attractivechaos/klib)
+
 
 Building
 --------
