@@ -13,7 +13,7 @@ int
     dispatch(client *cli, char *path);
 
 void
-    dispatch_responses(void);
+    dispatch_responses(rio_worker *worker);
 
 void
     init_dispatcher(void);

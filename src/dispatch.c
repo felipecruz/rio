@@ -31,14 +31,14 @@ void
     int ret;
 
     ret = zmq_close(publisher);
-    debug_print("Socket close return %d\n", ret);
+    debug_print("Dispatcher Socket close return %d\n", ret);
     
     ret = zmq_term(context);
-    debug_print("Context termination return :%d\n", ret);
+    debug_print("Dispatcher Context termination return :%d\n", ret);
 }
 
 void
-    dispatch_responses( )
+    dispatch_responses(rio_worker *worker)
 {
     
     int rc;
@@ -49,69 +49,69 @@ void
     client cli;
     zmq_msg_t msg;
 
-    zmq_pollitem_t items[] = { {publisher, 0, ZMQ_POLLIN, 0} };
-    zmq_poll (items, 1, 0);
+//    zmq_pollitem_t items[] = { {publisher, 0, ZMQ_POLLIN, 0} };
+//    zmq_poll (items, 1, 0);
 
     zmq_msg_init(&msg);
-    rc = zmq_recv(publisher, &msg, 0);
-
-    if (zmq_msg_size(&msg) > 0) {
-        struct epoll_event ev;
-        khiter_t k;
-        msgpack_unpacked result;
-        msgpack_unpacker pac;
-    
-        /* deserializes these objects using msgpack_unpacker. */
-        msgpack_unpacker_init(&pac, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
-
-        /* feeds the buffer. */
-        msgpack_unpacker_reserve_buffer(&pac, zmq_msg_size(&msg));
-        memcpy(msgpack_unpacker_buffer(&pac), zmq_msg_data(&msg), zmq_msg_size(&msg));
-        msgpack_unpacker_buffer_consumed(&pac, zmq_msg_size(&msg));
-
+    while ((rc = zmq_recv(publisher, &msg, ZMQ_NOBLOCK)) == 0) {
         debug_print("ZMQ message length: %d\n", zmq_msg_size(&msg));
-
-        /* now starts streaming deserialization. */
-        msgpack_unpacked_init(&result);
-
-        msgpack_unpacker_next(&pac, &result);
+        if (zmq_msg_size(&msg) > 0) {
+            struct epoll_event ev;
+            khiter_t k;
+            msgpack_unpacked result;
+            msgpack_unpacker pac;
         
-        msgpack_object _fd;
-        msgpack_object _content;
+            /* deserializes these objects using msgpack_unpacker. */
+            msgpack_unpacker_init(&pac, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
 
-        _fd = result.data.via.array.ptr[0];
-        _content = result.data.via.array.ptr[1];
-        
-        fd = (int) _fd.via.u64;
+            /* feeds the buffer. */
+            msgpack_unpacker_reserve_buffer(&pac, zmq_msg_size(&msg));
+            memcpy(msgpack_unpacker_buffer(&pac), zmq_msg_data(&msg), zmq_msg_size(&msg));
+            msgpack_unpacker_buffer_consumed(&pac, zmq_msg_size(&msg));
 
-        k = kh_get(clients, h, fd);
-        cli = kh_val(h, k);
+            /* now starts streaming deserialization. */
+            msgpack_unpacked_init(&result);
 
-        cli.buffer = malloc(sizeof(char) * 1024);
+            msgpack_unpacker_next(&pac, &result);
+            
+            msgpack_object _fd;
+            msgpack_object _content;
 
-        debug_print("Response to: %d Content:%s\n", cli.fd
-                                                  , cli.buffer);
-        sprintf(cli.buffer, 
-                default_response, 
-                _content.via.raw.size, 
-                _content.via.raw.ptr);
+            _fd = result.data.via.array.ptr[0];
+            _content = result.data.via.array.ptr[1];
+            
+            fd = (int) _fd.via.u64;
 
-        msgpack_unpacked_destroy(&result);
-        msgpack_unpacker_destroy(&pac);
+            k = kh_get(clients, h, fd);
+            cli = kh_val(h, k);
 
-        bzero(&ev, sizeof(struct epoll_event));
+            cli.buffer = malloc(sizeof(char) * 1024);
 
-        ev.events = EPOLLOUT;
-        ev.data.fd = cli.fd;
-        
-        if (epoll_ctl(epollfd, EPOLL_CTL_MOD, cli.fd, &ev) == -1) {
-            debug_print("Error epoll_ctl_mod  fd: %d\n", cli.fd);
+            debug_print("Response to: %d Content:%s\n", cli.fd
+                                                    , cli.buffer);
+            sprintf(cli.buffer, 
+                    default_response, 
+                    _content.via.raw.size, 
+                    _content.via.raw.ptr);
+
+            msgpack_unpacked_destroy(&result);
+            msgpack_unpacker_destroy(&pac);
+
+            bzero(&ev, sizeof(struct epoll_event));
+
+            ev.events = EPOLLOUT;
+            ev.data.fd = cli.fd;
+            
+            if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_MOD, cli.fd, &ev) == -1) {
+                debug_print("Error epoll_ctl_mod  fd: %d\n", cli.fd);
+            }
+            
+            k = kh_put(clients, h, cli.fd , &rc);
+            kh_value(h, k) = cli;
         }
-        
-        k = kh_put(clients, h, cli.fd , &rc);
-        kh_value(h, k) = cli;
-
     }
+    //closing zmq message
+    zmq_msg_close(&msg);
 }
 
 int 
@@ -141,7 +141,12 @@ int
     zmq_msg_init_size(&msg, buffer->size);
     memcpy(zmq_msg_data(&msg), buffer->data, buffer->size);
 
-    rc = zmq_send(publisher, &msg, 0);
+    rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
+    while (rc == -1) { 
+        debug_print("zmq send -1 errno: %d"
+                    "EFSM %d\nDispatching responses\n", zmq_errno(), EFSM);
+        rc = zmq_send(publisher, &msg, 0);
+    }
     debug_print("zeromq bytes sent: %d\n",rc);
 
     zmq_msg_close(&msg);

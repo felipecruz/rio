@@ -22,6 +22,12 @@
 #ifndef __NETWORK_H
 #define __NETWORK_H
 int 
-    run(int argc, char **args);
+    socket_bind(void);
+
+void
+    run_worker(int id, rio_worker* worker, rio_runtime *runtime);
+
+void
+    run_master(rio_runtime *runtime);
 #else
 #endif
