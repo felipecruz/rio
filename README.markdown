@@ -67,7 +67,7 @@ This branch will implement the master -> workers pattern.
 
 * **Master** - holds the runtime with listen socket, references to workers, catch signals and use zeromq PUB to send workers control messages. 
 
-* **Worker** - a worker can have different roles. The initial idea is to have one worker reading and writing to external clients (http clients like browsers) and other worker sending and receiving paylod from backend workers
+* **Worker** - a worker can have different roles. The initial idea is to have one worker reading and writing to external clients (http clients like browsers) and other worker sending and receiving payload from backend workers
 
 
 
