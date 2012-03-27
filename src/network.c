@@ -161,6 +161,11 @@ void handle_http(struct epoll_event event, client *cli) {
     if (event.events & EPOLLIN) {
         //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
+
+        if (!parser){
+          error_exit("malloc error: http_parser");
+        }
+
         http_parser_init(parser, HTTP_REQUEST);
         
         //handle read
