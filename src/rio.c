@@ -2,7 +2,7 @@
 #include <sys/wait.h>
 #include "network.h"
 
-#define WORKERS 1
+#define WORKERS 1 
 
 short int INTERRUPTED = 0;
 
@@ -74,48 +74,51 @@ int main(int argc, char **args) {
                 run_worker(i, runtime->workers[i], runtime);
                 _exit(0);
             default:
-                runtime->zmq_context = zmq_init(1);
-                runtime->publisher = zmq_socket(runtime->zmq_context,
-                                                ZMQ_PUB);
-                zmq_bind(runtime->publisher, "ipc:///tmp/rio_master.sock");
-
-                //run_master(runtime);
-
-                //debug_print("Running Master\n", runtime);
-
-                while (1) {
-                    int rc;
-                    
-                    if (INTERRUPTED != 0) {
-                        debug_print("Sending terminate!\n", runtime);
-                        send_command(runtime->publisher, "terminate");
-                        //terminate workers and exit gracefully
-                        break;
-                    }
-
-                    send_command(runtime->publisher, "tick");
-                    sleep(5);
-                }
-
-                //debug_print("Waiting for workers\n", runtime);
-                wait(NULL);
-                
-                debug_print("Freeing workers\n", runtime);
-                for (int i = 0; i < WORKERS; i++) {
-                    free(runtime->workers[i]);
-                }
-                
-                int rc = zmq_close(runtime->publisher);
-                debug_print("Master ZMQ Socket close return %d\n", rc);
-                
-                rc = zmq_term(runtime->zmq_context);
-                debug_print("Master ZMQ Context termination return :%d\n", rc);   
-
-                free(runtime->workers);
-                close(runtime->server_fd);
-                free(runtime);
-
-                exit(0);
+                debug_print("Master after fork\n", runtime);
         }
     }
+                
+    runtime->zmq_context = zmq_init(1);
+    runtime->publisher = zmq_socket(runtime->zmq_context,
+                                    ZMQ_PUB);
+    zmq_bind(runtime->publisher, "ipc:///tmp/rio_master.sock");
+
+    //run_master(runtime);
+
+    //debug_print("Running Master\n", runtime);
+
+    while (1) {
+        int rc;
+        
+        if (INTERRUPTED != 0) {
+            debug_print("Sending terminate!\n", runtime);
+            send_command(runtime->publisher, "terminate");
+            //terminate workers and exit gracefully
+            break;
+        }
+
+        send_command(runtime->publisher, "tick");
+        sleep(5);
+    }
+
+    //debug_print("Waiting for workers\n", runtime);
+    wait(NULL);
+    
+    debug_print("Freeing workers\n", runtime);
+    for (int i = 0; i < WORKERS; i++) {
+        free(runtime->workers[i]);
+    }
+    
+    int rc = zmq_close(runtime->publisher);
+    debug_print("Master ZMQ Socket close return %d\n", rc);
+    
+    rc = zmq_term(runtime->zmq_context);
+    debug_print("Master ZMQ Context termination return :%d\n", rc);   
+
+    free(runtime->workers);
+    close(runtime->server_fd);
+    free(runtime);
+
+    exit(0);
+
 }

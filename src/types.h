@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <unistd.h>
 #include "khash.h"
 
@@ -20,6 +21,12 @@ typedef struct {
 } rio_runtime;
 
 typedef struct {
+    void* content;
+    size_t length;
+    int where;
+} rio_buffer;
+
+typedef struct {
     int fd;
     int keep_alive;
     char *buffer;
@@ -31,4 +38,3 @@ KHASH_MAP_INIT_INT(clients, client)
 khash_t(clients) *h;
 #else
 #endif
-

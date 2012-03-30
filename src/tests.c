@@ -21,13 +21,15 @@
 #include "network.h"
 #include "static.h"
 #include "dispatch.h"
+#include "buffer.h"
 
 #include "CUnit/Basic.h"
 
 int main()
 {
-   CU_pSuite static_suite = NULL;
-   CU_pSuite dispatch_suite = NULL;
+    CU_pSuite static_suite = NULL;
+    CU_pSuite dispatch_suite = NULL;
+    CU_pSuite buffer_suite = NULL;
 
    /* initialize the CUnit test registry */
    if (CUE_SUCCESS != CU_initialize_registry())
@@ -45,6 +47,13 @@ int main()
       CU_cleanup_registry();
       return CU_get_error();
    }
+
+   buffer_suite = CU_add_suite("Buffer Suite", init_buffer_test_suite, NULL);
+   if (NULL == buffer_suite) {
+      CU_cleanup_registry();
+      return CU_get_error();
+   }
+
    /* add the tests to the suite */
    if ((NULL == CU_add_test(static_suite, "test of file_extension", 
                             test_file_extension)) ||
@@ -63,6 +72,16 @@ int main()
       return CU_get_error();
    }
 
+   if ((NULL == CU_add_test(buffer_suite, "test buffer creation", 
+                            test_buffer_new)) ||
+        (NULL == CU_add_test(buffer_suite, "test buffer adjust",
+                             test_buffer_adjust))
+        )
+   {
+      CU_cleanup_registry();
+      return CU_get_error();
+   }
+ 
    /* Run all tests using the CUnit Basic interface */
    CU_basic_set_mode(CU_BRM_VERBOSE);
    CU_basic_run_tests();

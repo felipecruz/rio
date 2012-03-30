@@ -13,6 +13,7 @@ char *body =
 
 void *context; 
 void *publisher; 
+void *subscriber;
 
 void
     init_dispatcher(void)
@@ -21,8 +22,10 @@ void
     
     context = zmq_init(1);
     
-    publisher = zmq_socket(context, ZMQ_REQ);
+    publisher = zmq_socket(context, ZMQ_PUSH);
+    subscriber =  zmq_socket(context, ZMQ_SUB);
     zmq_bind(publisher, "tcp://127.0.0.1:5555");
+    zmq_bind(subscriber, "tcp://127.0.0.1:4444");
 }
 
 void
@@ -40,7 +43,6 @@ void
 void
     dispatch_responses(rio_worker *worker)
 {
-    
     int rc;
     int fd;
     
@@ -53,7 +55,7 @@ void
 //    zmq_poll (items, 1, 0);
 
     zmq_msg_init(&msg);
-    while ((rc = zmq_recv(publisher, &msg, ZMQ_NOBLOCK)) == 0) {
+    while ((rc = zmq_recv(subscriber, &msg, ZMQ_NOBLOCK)) == 0) {
         debug_print("ZMQ message length: %d\n", zmq_msg_size(&msg));
         if (zmq_msg_size(&msg) > 0) {
             struct epoll_event ev;

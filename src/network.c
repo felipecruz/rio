@@ -412,7 +412,8 @@ void
         zmq_msg_init(&msg);
         rc = zmq_recv(worker->master, &msg, ZMQ_NOBLOCK);
         if (rc == 0) {
-            debug_print("Received %s from master\n", 
+            debug_print("Worker %d Received %s from master\n", 
+                                            id,
                                             (char *) zmq_msg_data(&msg));
         }
 
