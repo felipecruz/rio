@@ -70,8 +70,6 @@ This branch will implement the master -> workers pattern.
 * **Worker** - a worker can have different roles. The initial idea is to have one worker reading and writing to external clients (http clients like browsers) and other worker sending and receiving payload from backend workers
 
 
-
-
 Worker support
 ---------------------------
 
@@ -86,31 +84,64 @@ Respose format - worker(s) to rio
 
 * [client_id, content/type, content] as int, string(not implemented yet), string
 
+A naive python worker
+
+```python
+
+import zmqpy
+
+try:
+    import msgpack
+except Exception as e:
+    import msgpack_pure as msgpack
+
+c = zmqpy.Context().instance()
+receiver = c.socket(zmqpy.PULL)
+sender = c.socket(zmqpy.PUB)
+
+receiver.connect('tcp://127.0.0.1:5555')
+sender.connect('tcp://127.0.0.1:4444')
+
+count  = 0
+while True:
+    raw = receiver.recv()
+    data = msgpack.unpackb(raw)
+    sender.send(msgpack.packb([data[0], '<html><h1>rio</h1></html>']))
+```
+
 A naive ruby worker could look like that
 
 ```ruby
 
 require 'zmq'
 require 'msgpack'
+
 context = ZMQ::Context.new
 
-worker_socket = context.socket ZMQ::REP
+worker_socket = context.socket ZMQ::PULL
+sender_socket = context.socket ZMQ::PUB
+
 worker_socket.connect "tcp://127.0.0.1:5555"
+sender_socket.connect "tcp://127.0.0.1:4444"
 
 count = 0
 
 while true
-  req = MessagePack.unpack worker_socket.recv
-  count += 1
-
-  id = req[0]
-  uri = req[2]
-
-  rep = MessagePack.pack([id, "<html><h1>RubyWorker #{count}</h1></html>"])
-  worker_socket.send rep
-
-  puts count
+    req = MessagePack.unpack worker_socket.recv
+    count += 1
+    id = req[0]
+    uri = req[2]
+    rep = MessagePack.pack([id, "<html><h1>RubyWorker #{count}</h1></html>"])
+    sender_socket.send rep
 end
 ```
+TODO
+----
+
+* Finish workers synchronization
+* Send http headers to external workers
+* Refactor client struct - change name and use rio_buffer
+* Implement REAL non-blocking behaviour - check all returns and errnos
+
 
 send me an email: felipecruz@loogica.net
