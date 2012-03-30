@@ -24,8 +24,11 @@ void
     
     publisher = zmq_socket(context, ZMQ_PUSH);
     subscriber =  zmq_socket(context, ZMQ_SUB);
+
     zmq_bind(publisher, "tcp://127.0.0.1:5555");
     zmq_bind(subscriber, "tcp://127.0.0.1:4444");
+
+    zmq_setsockopt(subscriber, ZMQ_SUBSCRIBE, "", strlen(""));
 }
 
 void
@@ -34,7 +37,10 @@ void
     int ret;
 
     ret = zmq_close(publisher);
-    debug_print("Dispatcher Socket close return %d\n", ret);
+    debug_print("Dispatcher Publisher Socket close return %d\n", ret);
+ 
+    ret = zmq_close(subscriber);
+    debug_print("Dispatcher Subscriber Socket close return %d\n", ret);
     
     ret = zmq_term(context);
     debug_print("Dispatcher Context termination return :%d\n", ret);
@@ -149,7 +155,7 @@ int
                     "EFSM %d\nDispatching responses\n", zmq_errno(), EFSM);
         rc = zmq_send(publisher, &msg, 0);
     }
-    debug_print("zeromq bytes sent: %d\n",rc);
+    debug_print("zeromq send return: %d\n",rc);
 
     zmq_msg_close(&msg);
     msgpack_sbuffer_free(buffer);
