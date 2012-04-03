@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "dispatch.h"
 #include "static.h"
+#include "buffer.h"
 
 #define MAX_EVENTS 128
 #ifndef __NETWORK_H

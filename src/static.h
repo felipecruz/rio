@@ -19,7 +19,7 @@ typedef struct {
 } cached_file;
 
 void 
-    handle_static(client *cli, char *path);
+    handle_static(rio_client *cli, char *path);
 
 void
     init_static_server(void);

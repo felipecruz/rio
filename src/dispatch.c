@@ -1,4 +1,5 @@
 #include <strings.h>
+#include "buffer.h"
 #include "dispatch.h"
 #include "static.h"
 
@@ -51,10 +52,11 @@ void
 {
     int rc;
     int fd;
+    char buf[4096];
     
     size_t offset = 0;
     
-    client cli;
+    rio_client cli;
     zmq_msg_t msg;
 
 //    zmq_pollitem_t items[] = { {publisher, 0, ZMQ_POLLIN, 0} };
@@ -93,14 +95,19 @@ void
             k = kh_get(clients, h, fd);
             cli = kh_val(h, k);
 
-            cli.buffer = malloc(sizeof(char) * 1024);
+            cli.buffer = new_rio_buffer_size(sizeof(char) * 1024);
 
-            debug_print("Response to: %d Content:%s\n", cli.fd
-                                                    , cli.buffer);
-            sprintf(cli.buffer, 
+            sprintf(cli.buffer->content,
                     default_response, 
                     _content.via.raw.size, 
                     _content.via.raw.ptr);
+
+            cli.buffer->length = strlen(cli.buffer->content);
+            cli.buffer->where = 0;
+
+            debug_print("Response to: %d Content:%s\n", cli.fd, 
+                                        rio_buffer_get_data(cli.buffer));
+
 
             msgpack_unpacked_destroy(&result);
             msgpack_unpacker_destroy(&pac);
@@ -123,10 +130,8 @@ void
 }
 
 int 
-    dispatch(client *cli, char *path) 
+    dispatch(rio_client *cli, char *path) 
 {   
-    char *buf = NULL;
-    
     debug_print("Request URI %s\n", path);
 
     if (is_filename(path)) {
@@ -150,10 +155,14 @@ int
     memcpy(zmq_msg_data(&msg), buffer->data, buffer->size);
 
     rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
-    while (rc == -1) { 
+    if (rc < 0) { 
         debug_print("zmq send -1 errno: %d"
                     "EFSM %d\nDispatching responses\n", zmq_errno(), EFSM);
-        rc = zmq_send(publisher, &msg, 0);
+
+        if (zmq_errno() == EAGAIN) {
+            debug_print("zmq send EAGAIN on %d\n", cli->fd);
+        }
+        //rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
     }
     debug_print("zeromq send return: %d\n",rc);
 

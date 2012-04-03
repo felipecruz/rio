@@ -37,10 +37,31 @@ rio_buffer *
     }
 
     buffer->length = 0;
+    buffer->read_count = 0;
 
     return buffer;
 }
 
+rio_buffer *
+    new_rio_buffer_size(int size)
+{
+    rio_buffer *buffer;
+    
+    buffer = malloc(sizeof(rio_buffer));
+    if (buffer == NULL) {
+        error_exit("malloc error");
+    }
+
+    buffer->content = malloc(sizeof(char) * size);
+    if (buffer->content == NULL) {
+        error_exit("malloc error");
+    }
+
+    buffer->length = 0;
+    buffer->read_count = 0;
+
+    return buffer;
+}
 void
     rio_buffer_free(rio_buffer **buffer)
 {

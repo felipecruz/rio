@@ -24,17 +24,18 @@ typedef struct {
     void* content;
     size_t length;
     int where;
+    int read_count;
 } rio_buffer;
 
 typedef struct {
     int fd;
     int keep_alive;
-    char *buffer;
     char *path;
     unsigned char method;
-} client;
+    rio_buffer *buffer;
+} rio_client;
 
-KHASH_MAP_INIT_INT(clients, client)
+KHASH_MAP_INIT_INT(clients, rio_client)
 khash_t(clients) *h;
 #else
 #endif

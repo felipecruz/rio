@@ -1,4 +1,7 @@
 #include "network.h"
+#include "buffer.h"
+
+int eag = 0;
 
 static int 
     on_message(http_parser *parser) 
@@ -9,7 +12,7 @@ static int
 static int 
     on_path(http_parser *parser, const char *at, size_t len) 
 {
-    client *client = parser->data;
+    rio_client *client = parser->data;
     client->path = malloc(sizeof(char) * (len+1));
 
     if (client->path == NULL) {
@@ -58,20 +61,20 @@ http_parser_settings parser_settings =
 };
 
 void 
-    handle_write(rio_worker *worker, client *cli, char* resp) 
+    handle_write(rio_worker *worker, rio_client *cli, char* resp) 
 {
     struct epoll_event ev;
     int s, ret;
     khiter_t k;
 
-    cli->buffer = malloc(sizeof(char) * (strlen(resp)+1));
-    
-    strcpy((char *)cli->buffer, resp);
-    cli->buffer[strlen(resp)] = '\0';
-    
+    //cli->buffer = malloc(sizeof(char) * (strlen(resp)+1));
+    cli->buffer = new_rio_buffer_size(strlen(resp));
+    rio_buffer_copy_data(cli->buffer, resp, strlen(resp));
+   
     free(resp);
 
-    debug_print("Handle Write: %d : %s\n", cli->fd, cli->buffer);
+    debug_print("Handle Write: %d : %s\n", cli->fd, 
+                                rio_buffer_get_data(cli->buffer));
     
     ev.events = EPOLLOUT;
     ev.data.fd = cli->fd;
@@ -87,19 +90,33 @@ void
 }
 
 void 
-    do_write(rio_worker *worker, client *cli, struct epoll_event *ev) 
+    do_write(rio_worker *worker, rio_client *cli, struct epoll_event *ev) 
 {
     int sent;
     
-    debug_print("Do Write to fd: %d : %s\n", cli->fd, cli->buffer);
+    debug_print("Do Write to fd: %d : %s\n", cli->fd, 
+                                    rio_buffer_get_data(cli->buffer));
     
-    sent = send(cli->fd, cli->buffer, (int)strlen(cli->buffer), 0);
-    if (sent < 0 && errno != EAGAIN) {
-        debug_print("Do Write: send error on fd: %d errno: %d\n", 
-                    cli->fd, errno);
-    }
+    do {
+        sent = send(cli->fd, 
+                    rio_buffer_get_data(cli->buffer), 
+                    cli->buffer->length, 
+                    MSG_DONTWAIT);
+
+        if (sent < 0 && errno != EAGAIN) {
+            debug_print("Do Write: send error on fd: %d errno: %d\n", 
+                        cli->fd, errno);
+            break;
+        } else if (sent < 0 && errno == EAGAIN) {
+             debug_print("Do Write: EAGAIN on fd: %d\n", 
+                        cli->fd);
+             break;
+        } else if (sent > 0) {
+            rio_buffer_adjust(cli->buffer, sent);
+        }
+    } while (sent > 0 && rio_buffer_get_data(cli->buffer) != NULL);
         
-    debug_print("Do Write sent: %d strlen: %d\n", sent, strlen(cli->buffer));
+    debug_print("Do Write sent: %d strlen: %d\n", sent, cli->buffer->length);
     
     if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, ev) == -1) {
        debug_print("Error on epoll_ctl_del on %d\n", 
@@ -112,47 +129,72 @@ void
     }
 
     if (cli->buffer != NULL) {
-        free(cli->buffer);
-        cli->buffer = NULL;
+        rio_buffer_free(&cli->buffer);
+        //free(cli->buffer);
+        //cli->buffer = NULL;
     }
 }
 
 int 
-    handle_read(client *cli, struct epoll_event *ev) 
+    handle_read(rio_worker *worker, rio_client *cli, struct epoll_event *ev) 
 {
     size_t len = 4096;
-    char *p;
-    ssize_t received;
+    ssize_t received = 0;
+    ssize_t total_received = 0;
 
     //allocate space for data
-    cli->buffer = (char*)malloc((size_t)(sizeof(char) * 4096));
-    debug_print("Handle Read from %d\n", cli->fd);
-    received = recv(ev->data.fd, cli->buffer, len, MSG_DONTWAIT);
+    cli->buffer = new_rio_buffer_size(sizeof(char) * 4096);
 
-    if (received <= 0) 
-    {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) 
-        {
-            if (received == 0) 
-            {
-                //if error, remove from epoll and close socket
-                debug_print("Client received error: disconnected"
-                            "errno %d\n", errno);
-            } else 
-            {
-                debug_print("Some other error %d\n", errno);
+    debug_print("Handle Read from %d\n", cli->fd);
+
+    do {
+        received = recv(ev->data.fd, cli->buffer->content, len, MSG_DONTWAIT);
+        if (received < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                if (received == 0) {
+                    //if error, remove from epoll and close socket
+                    debug_print("Client received error: disconnected"
+                                "errno %d\n", errno);
+                } else {
+                    debug_print("Some other error %d\n", errno);
+                }
+                //handle_http will take care of this :)
+            } else {
+                //received += 1;
+                debug_print("EAGAIN on recv from fd: %d\n", cli->fd); 
+                
+                //if EAGAIN, insert on epoll again
+                ev->events = EPOLLIN | EPOLLET;
+                //add socket to epoll
+                if (epoll_ctl(worker->epoll_fd, 
+                                EPOLL_CTL_MOD, 
+                                cli->fd, 
+                                ev) == -1) {
+                    error_exit("Could not add conn_sock to epoll");
+                }
+
+                eag += 1;
+                printf("EAGAIN %d\n", eag);
+
             }
-            //handle_http will take care of this :)
+            break;
+        } else if (received == 0) {
+            //client disconnected
+            return 0;
         } else {
-            debug_print("EAGAIN on recv from fd: %d\n", cli->fd);
+            total_received += received;
+            debug_print("READ AGAIN on %d\n", cli->fd);
         }
-    }
-    
+    } while (received > 0 && rio_buffer_get_data(cli->buffer) != NULL);
+
+    debug_print("Total received %d\n", total_received);
+
+    cli->buffer->length = total_received;
     return received;
 }
 
 void 
-    handle_http(rio_worker *worker, struct epoll_event event, client *cli)
+    handle_http(rio_worker *worker, struct epoll_event event, rio_client *cli)
 {
     int response;
 
@@ -163,7 +205,7 @@ void
     
     if (event.events & EPOLLIN) {
         //handle read
-        int received = handle_read(cli, &event);
+        int received = handle_read(worker, cli, &event);
     
         //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
@@ -172,12 +214,25 @@ void
         //set parser data
         parser->data = (void*)cli;    
         
-        //execute http parsing
-        debug_print("Execute http parsing client: %d\n", cli->fd);
-        n = http_parser_execute(parser, &parser_settings, cli->buffer, received);
+        //execute http parsing only if data was read
+        if (received > 0) {
+            debug_print("Execute http parsing client: %d\n", cli->fd);
+            n = http_parser_execute(parser, 
+                                    &parser_settings, 
+                                    rio_buffer_get_data(cli->buffer),
+                                    received);
+        }
+
         if (parser->upgrade) {
             //#TODO: what to do?
-        } else if (n != received || received == 0) {
+        } else if (received == 0) { // client disconnected!
+            debug_print("Client %d Disconnected!\n", cli->fd);
+            epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, event.data.fd, &event);
+            close(cli->fd);
+            rio_buffer_free(&cli->buffer); 
+            free(parser);
+            return;
+        } else if (n != received) {
             debug_print("Error parsing, closing socket n:%d received:%d\n", 
                         n, received);
             
@@ -185,16 +240,12 @@ void
             epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, event.data.fd, &event);
             close(cli->fd);
 
-            if (cli->buffer != NULL) {
-                free(cli->buffer);
-                cli->buffer = NULL;
-            }
-
+            rio_buffer_free(&cli->buffer); 
             free(parser);
             return;
         }
 
-        free(cli->buffer);
+        rio_buffer_free(&cli->buffer);
         response = dispatch(cli, cli->path); 
         
         if (response != DISPATCH_FINISHED) {                
@@ -206,9 +257,7 @@ void
         free(cli->path);
         cli->path = NULL;
         free(parser);
-    } 
-    
-    if (event.events & EPOLLOUT) {
+    } else if (event.events & EPOLLOUT) {
         //if socket is ready to write, do it!
         do_write(worker, cli, &event);
     }
@@ -224,13 +273,13 @@ void
     free_clients()
 {
     khiter_t element;
-    client *cli;
+    rio_client *cli;
 
     debug_print("Closing clients structures\n", h);
     
     for (element = kh_begin(h); element != kh_end(h); ++element) {
         if (kh_exist(h, element)) {
-            debug_print("%d\n", ((client) kh_val(h, element)).fd);
+            debug_print("%d\n", ((rio_client) kh_val(h, element)).fd);
             kh_del(clients, h, element);
         }
     }
@@ -295,7 +344,7 @@ void
     struct epoll_event ev;
     struct sockaddr_in temp_client;
     
-    client cli;
+    rio_client cli;
     khiter_t k;
     
     client_len = sizeof(temp_client);
@@ -321,7 +370,7 @@ void
         error_exit("Could not set client socket non-blocking");
     }
     
-    ev.events = EPOLLIN;
+    ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = new_connection_socket;
 
     //add socket to epoll
@@ -350,7 +399,7 @@ void
     struct epoll_event ev, events[MAX_EVENTS];
     
     khiter_t k;
-    client cli;
+    rio_client cli;
 
     sprintf(worker->name, "worker %d", id);
     debug_print("Identifying worker as %s pid %d\n", worker->name,

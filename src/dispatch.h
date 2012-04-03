@@ -10,7 +10,7 @@
 #define DISPATCH_LATER 2
 
 int
-    dispatch(client *cli, char *path);
+    dispatch(rio_client *cli, char *path);
 
 void
     dispatch_responses(rio_worker *worker);

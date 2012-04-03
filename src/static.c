@@ -39,7 +39,7 @@ void
 }
 
 void
-    handle_static(client *cli, char *path) 
+    handle_static(rio_client *cli, char *path) 
 {
     int ret, num_read, fd;
     
