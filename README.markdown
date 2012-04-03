@@ -34,7 +34,7 @@ Open terminal::
     git submodule update
     make
 
-Tesing
+Testing
 --------
 
 Install CUnit (http://cunit.sourceforge.net)
@@ -50,6 +50,7 @@ Open terminal::
 
     make debug
     sudo valgrind --leak-check=full ./rio
+    
 
 Running
 -------
@@ -59,6 +60,9 @@ Open terminal::
     sudo ./rio
 
 rio will serve your current directory files - (html, js, css, json, jpg, png)
+
+
+
 
 Master -> Workers pattern
 -------------------------
@@ -135,6 +139,7 @@ while true
     sender_socket.send rep
 end
 ```
+
 TODO
 ----
 
