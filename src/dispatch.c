@@ -1,4 +1,5 @@
 #include <strings.h>
+#include "czmq.h"
 #include "buffer.h"
 #include "dispatch.h"
 #include "static.h"
@@ -16,6 +17,8 @@ void *context;
 void *publisher; 
 void *subscriber;
 
+zlist_t *queue;
+
 void
     init_dispatcher(void)
 {
@@ -30,6 +33,8 @@ void
     zmq_bind(subscriber, "tcp://127.0.0.1:4444");
 
     zmq_setsockopt(subscriber, ZMQ_SUBSCRIBE, "", strlen(""));
+
+    queue = zlist_new();
 }
 
 void
@@ -45,6 +50,8 @@ void
     
     ret = zmq_term(context);
     debug_print("Dispatcher Context termination return :%d\n", ret);
+
+    zlist_destroy(&queue);
 }
 
 void
@@ -141,6 +148,7 @@ int
     
     int rc;
     zmq_msg_t msg;
+    zmq_msg_t *pmsg;
     
     msgpack_sbuffer* buffer = msgpack_sbuffer_new();
     msgpack_packer* pk = msgpack_packer_new(buffer, msgpack_sbuffer_write);
@@ -154,13 +162,42 @@ int
     zmq_msg_init_size(&msg, buffer->size);
     memcpy(zmq_msg_data(&msg), buffer->data, buffer->size);
 
+    if (zlist_size(queue) > 0) {
+        debug_print("We have messages in the worker queue\n", cli->fd);
+    }
+
+    //TODO workn on the (naive) retry mechanism
+    zlist_t *temp = zlist_new();
+
+    for(int i = 0; i < zlist_size(queue); i++) {
+        pmsg = zlist_pop(queue);
+        rc = zmq_send(publisher, pmsg, ZMQ_NOBLOCK);
+        if (rc < 0) {
+            zlist_append(temp, pmsg);
+        } else {
+            zmq_msg_close(pmsg);
+        }
+    }
+
+    while((pmsg = zlist_pop(temp)))
+        zlist_append(queue, pmsg);
+
     rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
     if (rc < 0) { 
-        debug_print("zmq send -1 errno: %d"
-                    "EFSM %d\nDispatching responses\n", zmq_errno(), EFSM);
-
         if (zmq_errno() == EAGAIN) {
-            debug_print("zmq send EAGAIN on %d\n", cli->fd);
+            debug_print("zmq send EAGAIN on %d .. queueing\n", cli->fd);
+            
+            int _rc = zlist_append(queue, &msg);
+
+            if (_rc == 0) {
+                debug_print("EAGAIN -> Queue\n", cli->fd);
+            }
+
+            //TODO refactor! :)
+            msgpack_sbuffer_free(buffer);
+            msgpack_packer_free(pk);
+
+            return DISPATCH_AGAIN;
         }
         //rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
     }

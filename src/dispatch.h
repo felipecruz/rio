@@ -8,6 +8,7 @@
 
 #define DISPATCH_FINISHED 1
 #define DISPATCH_LATER 2
+#define DISPATCH_AGAIN 3
 
 int
     dispatch(rio_client *cli, char *path);
