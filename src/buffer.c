@@ -43,7 +43,7 @@ rio_buffer *
 }
 
 rio_buffer *
-    new_rio_buffer_size(int size)
+    new_rio_buffer_size(size_t size)
 {
     rio_buffer *buffer;
     

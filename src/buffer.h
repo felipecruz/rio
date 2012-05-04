@@ -24,7 +24,7 @@ rio_buffer *
     new_rio_buffer(void);
 
 rio_buffer *
-    new_rio_buffer_size(int);
+    new_rio_buffer_size(size_t);
 
 void
     rio_buffer_free(rio_buffer **buffer);
