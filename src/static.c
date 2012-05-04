@@ -42,28 +42,22 @@ void
     handle_static(rio_client *cli, char *path) 
 {
     int ret, num_read, fd;
-    
-    char pwd[2] = ".";
+ 
     char *filename;
     char *response;
     char *fextension;
     char *dup;
     char buf[1024];
      
-    cached_file *file;
-   
-    new(file, cached_file);
     //key must be 'duplicated' in order to gain another memory
     //address
-    filename = malloc(sizeof(char) * (strlen(pwd) + strlen(path) + 1));
+    filename = malloc(sizeof(char) * (strlen(".") + strlen(path) + 1));
     if (filename == NULL) {
         error_exit("malloc error");
     }
 
-    dup = strdup(strcat(pwd, path));
-    strcpy(filename, dup);
-    free(dup);
-
+    strcpy(filename, ".");
+    strcat(filename, path);
 
     debug_print("Serving %s\n", filename);
     //file not opened
@@ -73,12 +67,11 @@ void
     fd = open(filename, O_RDONLY | O_DIRECT);
     if (fd == -1) {
         debug_print("Error opening file %s. 404 response\n", filename);
-        write(cli->fd, 
-                default_four_zero_four, 
-                strlen(default_four_zero_four));
+        ret = write(cli->fd, 
+                    default_four_zero_four, 
+                    strlen(default_four_zero_four));
         close(cli->fd);
 
-        free(file);
         free(filename);
         return;
     }
@@ -88,9 +81,6 @@ void
 
     debug_print("%s file opened\n", filename);
 
-    file->fd = fd;
-    file->size = st.st_size;
-    
     response = malloc(512 * sizeof(char));
 
     fextension = extension(filename);
@@ -101,19 +91,18 @@ void
     sprintf(response, 
             default_static_response, 
             (char*) mime_type(fextension),
-            (int) file->size);
+            (int) st.st_size);
 
-    write(cli->fd, 
-          response, 
-          strlen(response));
+    ret = write(cli->fd, 
+                response, 
+                strlen(response));
     
-    sendfile(cli->fd, file->fd, NULL, file->size);
+    sendfile(cli->fd, fd, NULL, st.st_size);
     close(cli->fd);
     close(fd);
     
     free(filename);
     free(response);
-    free(file);
 
     return;
 }
