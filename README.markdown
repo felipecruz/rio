@@ -19,17 +19,13 @@ External Dependencies and thanks to the Authors of:
 * msgpack (http://msgpack.org)
 
 
-Embeded Dependencies
---------------------
-
-* websocket.{h,c} - Putilov Andrey
-* b64.c - Bob Trower
-
-
 Embedded libraries
 -----------------
 
 * khash from klib (https://github.com/attractivechaos/klib)
+* websocket.{h,c} - Putilov Andrey
+* b64.c - Bob Trower
+
 
 
 Building
