@@ -19,6 +19,13 @@ External Dependencies and thanks to the Authors of:
 * msgpack (http://msgpack.org)
 
 
+Embeded Dependencies
+--------------------
+
+* websocket.{h,c} - Putilov Andrey
+* b64.c - Bob Trower
+
+
 Embedded libraries
 -----------------
 
@@ -63,7 +70,6 @@ rio will serve your current directory files - (html, js, css, json, jpg, png)
 
 
 
-
 Master -> Workers pattern
 -------------------------
 
@@ -81,12 +87,11 @@ rio is designed to be plugged with backend workers at runtime, and to communicat
 
 Request format - rio to worker(s)
 
-* [client_id, method, uri] as int, int, string
-
+* [client_id, method, is_websocket, uri] as int, int, int, string
 
 Respose format - worker(s) to rio
 
-* [client_id, content/type, content] as int, string(not implemented yet), string
+* [client_id, response_code, is_websocket, content/type, content] as int, int, int, string(not implemented yet), string
 
 A naive python worker
 
@@ -145,8 +150,8 @@ TODO
 
 * Finish workers synchronization
 * Send http headers to external workers
-* Refactor client struct - change name and use rio_buffer
 * Implement REAL non-blocking behaviour - check all returns and errnos
+* Initially, rio will only handle websocket handshake, and then send websocket packets as regular(flaged) messages to workers. Workers will have to handle websocket framing stuff for now.
 
 
 send me an email: felipecruz@loogica.net
