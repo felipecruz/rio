@@ -1,4 +1,7 @@
+#include <strings.h>
+
 #include "network.h"
+#include "websocket.h"
 #include "buffer.h"
 
 int eag = 0;
@@ -18,7 +21,7 @@ static int
     if (client->path == NULL) {
         error_exit("Malloc");
     }    
-    strncpy(client->path, at, len+1);
+    strncpy(client->path, at, len);
     client->path[len] = '\0';
 
     client->method = (unsigned char) parser->method;
@@ -61,22 +64,16 @@ http_parser_settings parser_settings =
 };
 
 void 
-    handle_write(rio_worker *worker, rio_client *cli, char* resp) 
+    handle_write(rio_worker *worker, rio_client *cli) 
 {
     struct epoll_event ev;
     int s, ret;
     khiter_t k;
 
-    //cli->buffer = malloc(sizeof(char) * (strlen(resp)+1));
-    cli->buffer = new_rio_buffer_size(strlen(resp));
-    rio_buffer_copy_data(cli->buffer, resp, strlen(resp));
-   
-    free(resp);
-
     debug_print("Handle Write: %d : %s\n", cli->fd, 
                                 rio_buffer_get_data(cli->buffer));
-    
-    ev.events = EPOLLOUT;
+
+    ev.events = EPOLLOUT | EPOLLET;
     ev.data.fd = cli->fd;
     
     if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_MOD, cli->fd, &ev) == -1) {
@@ -86,23 +83,26 @@ void
     
     k = kh_put(clients, h, cli->fd , &ret);
     kh_value(h, k) = *cli;
-
 }
 
 void 
     do_write(rio_worker *worker, rio_client *cli, struct epoll_event *ev) 
 {
     int sent;
-    
-    debug_print("Do Write to fd: %d : %s\n", cli->fd, 
-                                    rio_buffer_get_data(cli->buffer));
-    
+
+    if (cli->buffer->length == 0) {
+        return;
+    }
+           
+    debug_print("Do Write ws(%d) to fd: %d : %s\n", cli->websocket, cli->fd, 
+                                            rio_buffer_get_data(cli->buffer));
+
     do {
         sent = send(cli->fd, 
                     rio_buffer_get_data(cli->buffer), 
                     cli->buffer->length, 
                     MSG_DONTWAIT);
-
+    
         if (sent < 0 && errno != EAGAIN) {
             debug_print("Do Write: send error on fd: %d errno: %d\n", 
                         cli->fd, errno);
@@ -115,23 +115,37 @@ void
             rio_buffer_adjust(cli->buffer, sent);
         }
     } while (sent > 0 && rio_buffer_get_data(cli->buffer) != NULL);
-        
-    debug_print("Do Write sent: %d strlen: %d\n", sent, cli->buffer->length);
     
-    if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, ev) == -1) {
-       debug_print("Error on epoll_ctl_del on %d\n", 
+    // if it's a regular connection and since we don't support chunked responses
+    // after write the response we close the connection
+    if (cli->websocket == 0) {
+        debug_print("Do Write sent: %d from: %d\n", sent, 
+                                                    cli->buffer->length);
+        
+        if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, ev) == -1) {
+                debug_print("Error on epoll_ctl_del on %d\n", cli->fd, 
+                                                              worker->epoll_fd);
+        }
+        
+        if (close(cli->fd) == -1) {
+            debug_print("Error on close client %d\n", 
                                                 cli->fd, worker->epoll_fd);
+        }
+        
+    } else {
+        ev->events = EPOLLIN | EPOLLET;
+
+        //add socket to epoll
+        if (epoll_ctl(worker->epoll_fd, 
+                      EPOLL_CTL_MOD,
+                      cli->fd,
+                      ev) == -1) {
+            error_exit("Could not add conn_sock to epoll");
+        }
     }
 
-    if (close(cli->fd) == -1) {
-        debug_print("Error on close client %d\n", 
-                                            cli->fd, worker->epoll_fd);
-    }
-
-    if (cli->buffer != NULL) {
+    if (cli->buffer->content != NULL) {
         rio_buffer_free(&cli->buffer);
-        //free(cli->buffer);
-        //cli->buffer = NULL;
     }
 }
 
@@ -142,10 +156,10 @@ int
     ssize_t received = 0;
     ssize_t total_received = 0;
 
-    //allocate space for data
-    cli->buffer = new_rio_buffer_size(sizeof(char) * 4096);
-
-    debug_print("Handle Read from %d\n", cli->fd);
+    cli->buffer = new_rio_buffer_size(4096);
+        
+    debug_print("Handle Read from %d websocket(%d)\n", cli->fd, 
+                                                       cli->websocket);
 
     do {
         received = recv(ev->data.fd, cli->buffer->content, len, MSG_DONTWAIT);
@@ -186,11 +200,49 @@ int
             debug_print("READ AGAIN on %d\n", cli->fd);
         }
     } while (received > 0 && rio_buffer_get_data(cli->buffer) != NULL);
+    
+    cli->buffer->length = total_received;
 
     debug_print("Total received %d\n", total_received);
 
-    cli->buffer->length = total_received;
     return received;
+}
+
+void
+    handle_websocket(rio_worker *worker, rio_client *cli)
+{
+    int ret;
+    size_t size = 4096;
+    khiter_t k;
+    enum ws_frame_type frame_type = WS_INCOMPLETE_FRAME;
+    struct handshake hs;
+    nullhandshake(&hs);
+
+    char *temp = rio_buffer_get_data(cli->buffer);
+
+    frame_type = ws_parse_handshake(temp,
+                                    cli->buffer->length,
+                                    &hs);
+
+    if (frame_type == WS_INCOMPLETE_FRAME ||
+        frame_type == WS_ERROR_FRAME) {
+        debug_print("Websocket frame error or incomplete\n", cli->fd);
+    }
+    
+    rio_buffer_free(&cli->buffer);
+    cli->buffer = new_rio_buffer_size(sizeof(char) * 4096);
+
+    ws_get_handshake_answer(&hs, 
+                            cli->buffer->content,
+                            &size);
+
+    cli->websocket = 1;
+    cli->buffer->length = size;
+
+    handle_write(worker, cli);
+
+    k = kh_put(clients, h, cli->fd , &ret);
+    kh_value(h, k) = *cli;
 }
 
 void 
@@ -203,14 +255,14 @@ void
     
     size_t n;
     
-    if (event.events & EPOLLIN) {
+    if (event.events & EPOLLIN && cli->websocket == 0) {
         //handle read
         int received = handle_read(worker, cli, &event);
     
         //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
 
-        if (!parser){
+        if (!parser) {
           error_exit("malloc error: http_parser");
         }
 
@@ -229,7 +281,9 @@ void
         }
 
         if (parser->upgrade) {
-            //#TODO: what to do?
+            handle_websocket(worker, cli);
+            goto end_clean_path;
+
         } else if (received == 0) { // client disconnected!
             debug_print("Client %d Disconnected!\n", cli->fd);
             epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, event.data.fd, &event);
@@ -257,11 +311,14 @@ void
             //write response
             debug_print("Async Dispatch to fd: %d\n", cli->fd);
         }
+        
+        end_clean_path:
 
         debug_print("Freeing %s\n", cli->path);
         free(cli->path);
         cli->path = NULL;
         free(parser);
+
     } else if (event.events & EPOLLOUT) {
         //if socket is ready to write, do it!
         do_write(worker, cli, &event);
@@ -365,13 +422,10 @@ void
     }
 
     //check sockets flags and set non-blocking after
-    if (-1 == (flags = fcntl(new_connection_socket, 
-                                F_GETFL, 0))) {
+    if (-1 == (flags = fcntl(new_connection_socket, F_GETFL, 0))) {
         flags = 0;
     }
-    if (fcntl(new_connection_socket, 
-                F_SETFL, 
-                flags | O_NONBLOCK) == -1) {
+    if (fcntl(new_connection_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
         error_exit("Could not set client socket non-blocking");
     }
     
@@ -380,14 +434,16 @@ void
 
     //add socket to epoll
     if (epoll_ctl(worker->epoll_fd, 
-                    EPOLL_CTL_ADD, 
-                    new_connection_socket, 
-                    &ev) == -1) {
+                  EPOLL_CTL_ADD, 
+                  new_connection_socket, 
+                  &ev) == -1) {
         error_exit("Could not add conn_sock to epoll");
     }
 
     //store client information
     cli.fd = new_connection_socket;
+    cli.websocket = 0;
+    cli.buffer = NULL;
 
     k = kh_put(clients, h, new_connection_socket , &ret);
     kh_value(h, k) = cli;
