@@ -7,7 +7,7 @@ all: http_parser.o
           src/utils.c src/buffer.c  \
           src/dispatch.c src/static.c \
           src/network.c src/rio.c \
-          -O2 -lcrypto -lzmq -lczmq -lmsgpack -std=c99 -o rio -DDEBUG=0
+          -O2 -Wall -lcrypto -lzmq -lczmq -lmsgpack -std=c99 -o rio -DDEBUG=0
 
 debug:
 	$(CC) http-parser/http_parser.o -g src/b64.c src/websocket.c \
