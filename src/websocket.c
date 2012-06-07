@@ -266,3 +266,86 @@ enum ws_frame_type ws_parse_input_frame(const uint8_t *input_frame, size_t input
 
     return frame_type;
 }
+
+int
+    _end_frame(uint8_t *packet)
+{
+    return (packet[0] & 0x80) == 0x80;
+}
+
+enum ws_frame_type 
+    _type(uint8_t *packet)
+{
+    if ((packet[0] & 0x01) == 0x01) {
+        return WS_TEXT_FRAME;
+    } else if ((packet[0] & 0x00) == 0x00) {
+        return WS_INCOMPLETE_FRAME;
+    } else if ((packet[0] & 0x02) == 0x02) {
+        return WS_BINARY_FRAME;
+    } else if ((packet[0] & 0x08) == 0x08) {
+        return WS_CLOSING_FRAME;
+    }
+
+}
+
+int 
+    _masked(uint8_t *packet)
+{
+    return (packet[1] & 0x80) >= 0x80; 
+}
+
+
+#if TEST
+#include "CUnit/CUnit.h"
+int
+    init_websocket_test_suite(void)
+{
+    return 0;
+}
+
+/*
+ o  A single-frame unmasked text message
+      *  0x81 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains "Hello")
+   o  A single-frame masked text message
+      *  0x81 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
+         (contains "Hello")
+   o  A fragmented unmasked text message
+      *  0x01 0x03 0x48 0x65 0x6c (contains "Hel")
+      *  0x80 0x02 0x6c 0x6f (contains "lo")
+   o  Unmasked Ping request and masked Ping response
+      *  0x89 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains a body of "Hello",
+         but the contents of the body are arbitrary)
+      *  0x8a 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
+         (contains a body of "Hello", matching the body of the ping) 
+*/
+
+void 
+    test_websocket_parse_input(void)
+{
+    uint8_t single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
+    
+    uint8_t first_frame[] = {0x01, 0x03, 0x48, 0x65, 0x6c};
+    uint8_t second_frame[] = {0x80, 0x02, 0x6c, 0x6f};
+
+    uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 
+                                   0x9f, 0x4d, 0x51, 0x58};
+
+    CU_ASSERT(1 == _end_frame(&single_frame));
+    CU_ASSERT(0 == _end_frame(&first_frame));
+    CU_ASSERT(1 == _end_frame(&second_frame));
+    CU_ASSERT(1 == _end_frame(&single_frame_masked));
+
+    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame));
+    CU_ASSERT(WS_TEXT_FRAME == _type(&first_frame));
+    CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
+    CU_ASSERT(WS_INCOMPLETE_FRAME == _type(&second_frame));
+    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
+
+    CU_ASSERT(0 == _masked(&single_frame));
+    CU_ASSERT(0 == _masked(&first_frame));
+    CU_ASSERT(0 == _masked(&second_frame));
+    CU_ASSERT(1 == _masked(&single_frame_masked));
+
+}
+
+#endif

@@ -57,12 +57,12 @@ static const char key1[] PROGMEM = "Sec-WebSocket-Key1: ";
 static const char key2[] PROGMEM = "Sec-WebSocket-Key2: ";
 
 enum ws_frame_type {
-    WS_ERROR_FRAME,
-    WS_INCOMPLETE_FRAME,
-    WS_TEXT_FRAME,
-    WS_BINARY_FRAME,
-    WS_OPENING_FRAME,
-    WS_CLOSING_FRAME
+    WS_ERROR_FRAME = 1,
+    WS_INCOMPLETE_FRAME = 2,
+    WS_TEXT_FRAME = 3,
+    WS_BINARY_FRAME = 4,
+    WS_OPENING_FRAME = 5,
+    WS_CLOSING_FRAME = 6
 };
 
 struct handshake {
@@ -128,4 +128,11 @@ struct handshake {
 }
 #endif
 
+#if TEST
+int 
+    init_websocket_test_suite(void);
+
+void
+    test_websocket_parse_input(void);
+#endif
 #endif  /* WEBSOCKET_H */

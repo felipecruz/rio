@@ -22,6 +22,7 @@
 #include "static.h"
 #include "dispatch.h"
 #include "buffer.h"
+#include "websocket.h"
 
 #include "CUnit/Basic.h"
 
@@ -30,6 +31,7 @@ int main()
     CU_pSuite static_suite = NULL;
     CU_pSuite dispatch_suite = NULL;
     CU_pSuite buffer_suite = NULL;
+    CU_pSuite websocket_suite = NULL;
 
    /* initialize the CUnit test registry */
    if (CUE_SUCCESS != CU_initialize_registry())
@@ -53,6 +55,13 @@ int main()
       CU_cleanup_registry();
       return CU_get_error();
    }
+
+   websocket_suite = CU_add_suite("Websocket Suite", init_websocket_test_suite, NULL);
+   if (NULL == websocket_suite) {
+      CU_cleanup_registry();
+      return CU_get_error();
+   }
+
 
    /* add the tests to the suite */
    if ((NULL == CU_add_test(static_suite, "test of file_extension", 
@@ -81,6 +90,17 @@ int main()
       CU_cleanup_registry();
       return CU_get_error();
    }
+ 
+   if ((NULL == CU_add_test(websocket_suite, "test websocket parse input", 
+                            test_websocket_parse_input))) //||
+        //(NULL == CU_add_test(websocket_suite, "test websocket adjust",
+        //                     test_buffer_adjust))
+        //)
+   {
+      CU_cleanup_registry();
+      return CU_get_error();
+   }
+ 
  
    /* Run all tests using the CUnit Basic interface */
    CU_basic_set_mode(CU_BRM_VERBOSE);
