@@ -88,8 +88,6 @@ int main(int argc, char **args) {
     //debug_print("Running Master\n", runtime);
 
     while (1) {
-        int rc;
-        
         if (INTERRUPTED != 0) {
             debug_print("Sending terminate!\n", runtime);
             send_command(runtime->publisher, "terminate");
