@@ -345,6 +345,8 @@ uint8_t*
         packet[i] ^= mask[i % 4];
     }
 
+    free(mask);
+
     return packet;
 }
 
