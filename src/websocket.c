@@ -176,12 +176,8 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
             PSTR("HTTP/1.1 101 Switching Protocols\r\n"
             "Upgrade: websocket\r\n"
             "Connection: Upgrade\r\n"
-                        "Sec-WebSocket-Accept: %s\r\n\r\n"),
-                    accept_key);
-    if (hs->protocol)
-        written += sprintf_P((char *)out_frame + written,
-            PSTR("Sec-WebSocket-Protocol: %s\r\n"), hs->protocol);
-    written += sprintf_P((char *)out_frame + written, rn);
+            "Sec-WebSocket-Accept: %s\r\n\r\n"), accept_key);
+
     *out_len = written;
     return WS_OPENING_FRAME;
 }
