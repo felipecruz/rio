@@ -350,6 +350,24 @@ uint8_t*
     return mask;
 }
 
+uint8_t*
+    extract_payload(uint8_t *packet)
+{
+    uint8_t *data;
+    uint64_t length = _payload_length(packet);
+
+    if (_masked(packet) > 0) {
+        return NULL;
+    } else {
+        if (length < 126) {
+            return &packet[2];
+        }
+        return NULL;
+    }
+    return NULL;
+
+}
+
 #if TEST
 #include "CUnit/CUnit.h"
 int
@@ -426,6 +444,9 @@ void
 
     CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
                            (char*) mask, 4));
+
+    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame),
+                            "Hello", 5));
 
 }
 
