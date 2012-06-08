@@ -121,13 +121,13 @@ void
     //upgrade from ws hadnshake to ws connection
     if (cli->websocket == 1)
         cli->websocket = 2;
-
+    
+    debug_print("Do Write sent: %d from: %d\n", sent, 
+                                                cli->buffer->length);
+ 
     // if it's a regular connection and since we don't support chunked responses
     // after write the response we close the connection
-    if (cli->websocket == 0) {
-        debug_print("Do Write sent: %d from: %d\n", sent, 
-                                                    cli->buffer->length);
-        
+    if (cli->websocket == 0) {   
         if (epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, ev) == -1) {
                 debug_print("Error on epoll_ctl_del on %d\n", cli->fd, 
                                                               worker->epoll_fd);
@@ -139,7 +139,7 @@ void
         }
         
     } else {
-        ev->events = EPOLLIN | EPOLLET;
+        ev->events = EPOLLIN | EPOLLOUT | EPOLLET;
 
         //add socket to epoll
         if (epoll_ctl(worker->epoll_fd, 
@@ -255,6 +255,8 @@ void
     k = kh_put(clients, h, cli->fd , &ret);
     kh_value(h, k) = *cli;
 }
+    
+uint8_t _fake_single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
 
 void 
     handle_ws(rio_worker *worker, struct epoll_event event, rio_client *cli)
@@ -266,8 +268,15 @@ void
                                  cli->buffer->length,
                                  NULL,
                                  0);
-    } else if (event.events & EPOLLOUT) {
+            rio_buffer_free(&cli->buffer);
+            cli->buffer = new_rio_buffer();
+            rio_buffer_copy_data(cli->buffer, _fake_single_frame, 14); 
+            handle_write(worker, cli);
 
+    } else if (event.events & EPOLLOUT) {
+        if (cli->buffer != NULL) {
+            do_write(worker, cli, &event);
+        }
     }
 }
 void 
