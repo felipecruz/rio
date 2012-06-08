@@ -24,7 +24,9 @@
 
 #include "websocket.h"
 #include "utils.h"
+#include "b64.h"
 #include <openssl/sha.h>
+
 
 #ifndef TRUE
 #define TRUE 1
@@ -276,13 +278,15 @@ int
 enum ws_frame_type 
     _type(uint8_t *packet)
 {
-    if ((packet[0] & 0x01) == 0x01) {
+    int opcode = packet[0] & 0xf;
+
+    if (opcode == 0x01) {
         return WS_TEXT_FRAME;
-    } else if ((packet[0] & 0x00) == 0x00) {
+    } else if (opcode == 0x00) {
         return WS_INCOMPLETE_FRAME;
-    } else if ((packet[0] & 0x02) == 0x02) {
+    } else if (opcode == 0x02) {
         return WS_BINARY_FRAME;
-    } else if ((packet[0] & 0x08) == 0x08) {
+    } else if (opcode == 0x08) {
         return WS_CLOSING_FRAME;
     }
 
@@ -294,6 +298,48 @@ int
     return (packet[1] & 0x80) >= 0x80; 
 }
 
+uint64_t
+    _payload_length(uint8_t *packet)
+{
+    int length = -1;
+    
+    if (_masked(packet)) {
+        length = packet[1] &= ~(1 << 7);
+    } else {
+        length = packet[1];
+    }
+    
+    if (length < 125) {
+        return length;
+    } else if (length == 126) {
+        uint16_t u16l = 0;
+        memcpy((char*) &u16l, &packet[2], 2);
+        return u16l;
+    } else if (length == 127) {
+        uint64_t u64l = 0;
+        memcpy((char*) &u64l, &packet[2], 8);
+        printf("64 %d\n", u64l);
+        return u64l;
+    } else {
+        return length;
+    }
+}
+
+uint8_t*
+    _extract_mask_len1(const uint8_t *packet)
+{
+    uint8_t *mask;
+    int j = 0;
+
+    mask = malloc(sizeof(uint8_t) * 4);
+    
+    for(int i = 2; i < 6; i++) {
+        mask[j] = packet[i];
+        j++;
+    }
+
+    return mask;
+}
 
 #if TEST
 #include "CUnit/CUnit.h"
@@ -317,6 +363,11 @@ int
          but the contents of the body are arbitrary)
       *  0x8a 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
          (contains a body of "Hello", matching the body of the ping) 
+   o  256 bytes binary message in a single unmasked frame
+      *  0x82 0x7E 0x0100 [256 bytes of binary data]
+   o  64KiB binary message in a single unmasked frame
+      *  0x82 0x7F 0x0000000000010000 [65536 bytes of binary data]
+
 */
 
 void 
@@ -328,7 +379,12 @@ void
     uint8_t second_frame[] = {0x80, 0x02, 0x6c, 0x6f};
 
     uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 
-                                   0x9f, 0x4d, 0x51, 0x58};
+                                     0x9f, 0x4d, 0x51, 0x58};
+
+    uint8_t len_256[] = {0x82, 0x7E, 0x0100, 0x1, 0x1, 0x1, 0x1};
+    uint8_t len_64k[] = {0x82, 0x7F, 0x0000000000010000, 0x0, 0x0, 0x0, 0x0};
+
+    uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
 
     CU_ASSERT(1 == _end_frame(&single_frame));
     CU_ASSERT(0 == _end_frame(&first_frame));
@@ -340,11 +396,26 @@ void
     CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
     CU_ASSERT(WS_INCOMPLETE_FRAME == _type(&second_frame));
     CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
+    CU_ASSERT(WS_BINARY_FRAME == _type(&len_256));
+    CU_ASSERT(WS_BINARY_FRAME == _type(&len_64k));
 
     CU_ASSERT(0 == _masked(&single_frame));
     CU_ASSERT(0 == _masked(&first_frame));
     CU_ASSERT(0 == _masked(&second_frame));
     CU_ASSERT(1 == _masked(&single_frame_masked));
+    CU_ASSERT(0 == _masked(&len_256));
+    CU_ASSERT(0 == _masked(&len_64k));
+
+    CU_ASSERT(5 == _payload_length(&single_frame));
+    CU_ASSERT(3 == _payload_length(&first_frame));
+    CU_ASSERT(2 == _payload_length(&second_frame));
+    CU_ASSERT(5 == _payload_length(&single_frame_masked));
+    
+    CU_ASSERT(256 == _payload_length(&len_256));
+    CU_ASSERT(65536 == _payload_length(&len_64k));
+
+    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked), 
+                           (char*) mask, 4));
 
 }
 
