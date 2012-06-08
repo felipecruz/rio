@@ -314,9 +314,11 @@ uint64_t
     _payload_length(uint8_t *packet)
 {
     int length = -1;
+    uint8_t temp = 0;
 
     if (_masked(packet)) {
-        length = packet[1] &= ~(1 << 7);
+        temp = packet[1];
+        length = (temp &= ~(1 << 7));
     } else {
         length = packet[1];
     }
@@ -370,7 +372,6 @@ uint8_t*
     uint64_t length = _payload_length(packet);
 
     if (m == 1) {
-        printf("masked");
         if (length < 126) {
             mask = _extract_mask_len1(packet);
             return unmask(&packet[6], length, mask);
@@ -432,40 +433,40 @@ void
 
     uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
 
-//    CU_ASSERT(1 == _end_frame(&single_frame));
-//    CU_ASSERT(0 == _end_frame(&first_frame));
-//    CU_ASSERT(1 == _end_frame(&second_frame));
-//    CU_ASSERT(1 == _end_frame(&single_frame_masked));
-//
-//    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame));
-//    CU_ASSERT(WS_TEXT_FRAME == _type(&first_frame));
-//    CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
-//    CU_ASSERT(WS_INCOMPLETE_FRAME == _type(&second_frame));
-//    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
-//    CU_ASSERT(WS_BINARY_FRAME == _type(&len_256));
-//    CU_ASSERT(WS_BINARY_FRAME == _type(&len_64k));
-//
-//    CU_ASSERT(0 == _masked(&single_frame));
-//    CU_ASSERT(0 == _masked(&first_frame));
-//    CU_ASSERT(0 == _masked(&second_frame));
-//    CU_ASSERT(1 == _masked(&single_frame_masked));
-//    CU_ASSERT(0 == _masked(&len_256));
-//    CU_ASSERT(0 == _masked(&len_64k));
-//
-//    CU_ASSERT(5 == _payload_length(&single_frame));
-//    CU_ASSERT(3 == _payload_length(&first_frame));
-//    CU_ASSERT(2 == _payload_length(&second_frame));
-//    CU_ASSERT(5 == _payload_length(&single_frame_masked));
-//
-//    CU_ASSERT(256 == _payload_length(&len_256));
-//    CU_ASSERT(65536 == _payload_length(&len_64k));
-//
-//    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
-//                           (char*) mask, 4));
-//
-//    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame),
-//                            "Hello", 5));
-//
+    CU_ASSERT(1 == _end_frame(&single_frame));
+    CU_ASSERT(0 == _end_frame(&first_frame));
+    CU_ASSERT(1 == _end_frame(&second_frame));
+    CU_ASSERT(1 == _end_frame(&single_frame_masked));
+
+    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame));
+    CU_ASSERT(WS_TEXT_FRAME == _type(&first_frame));
+    CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
+    CU_ASSERT(WS_INCOMPLETE_FRAME == _type(&second_frame));
+    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
+    CU_ASSERT(WS_BINARY_FRAME == _type(&len_256));
+    CU_ASSERT(WS_BINARY_FRAME == _type(&len_64k));
+
+    CU_ASSERT(0 == _masked(&single_frame));
+    CU_ASSERT(0 == _masked(&first_frame));
+    CU_ASSERT(0 == _masked(&second_frame));
+    CU_ASSERT(1 == _masked(&single_frame_masked));
+    CU_ASSERT(0 == _masked(&len_256));
+    CU_ASSERT(0 == _masked(&len_64k));
+
+    CU_ASSERT(5 == _payload_length(&single_frame));
+    CU_ASSERT(3 == _payload_length(&first_frame));
+    CU_ASSERT(2 == _payload_length(&second_frame));
+    CU_ASSERT(5 == _payload_length(&single_frame_masked));
+
+    CU_ASSERT(256 == _payload_length(&len_256));
+    CU_ASSERT(65536 == _payload_length(&len_64k));
+
+    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
+                           (char*) mask, 4));
+
+    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame),
+                            "Hello", 5));
+
     CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame_masked),
                             "Hello", 5));
 }
