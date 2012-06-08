@@ -88,7 +88,9 @@ void
 void 
     do_write(rio_worker *worker, rio_client *cli, struct epoll_event *ev) 
 {
+    int ret;
     int sent;
+    khiter_t k;
 
     if (cli->buffer->length == 0) {
         return;
@@ -116,6 +118,10 @@ void
         }
     } while (sent > 0 && rio_buffer_get_data(cli->buffer) != NULL);
     
+    //upgrade from ws hadnshake to ws connection
+    if (cli->websocket == 1)
+        cli->websocket = 2;
+
     // if it's a regular connection and since we don't support chunked responses
     // after write the response we close the connection
     if (cli->websocket == 0) {
@@ -147,6 +153,10 @@ void
     if (cli->buffer->content != NULL) {
         rio_buffer_free(&cli->buffer);
     }
+
+    k = kh_put(clients, h, cli->fd , &ret);
+    kh_value(h, k) = *cli;
+
 }
 
 int 
@@ -209,13 +219,14 @@ int
 }
 
 void
-    handle_websocket(rio_worker *worker, rio_client *cli)
+    handle_websocket_connection(rio_worker *worker, rio_client *cli)
 {
     int ret;
     size_t size = 4096;
     khiter_t k;
     enum ws_frame_type frame_type = WS_INCOMPLETE_FRAME;
     struct handshake hs;
+
     nullhandshake(&hs);
 
     char *temp = rio_buffer_get_data(cli->buffer);
@@ -246,6 +257,20 @@ void
 }
 
 void 
+    handle_ws(rio_worker *worker, struct epoll_event event, rio_client *cli)
+{
+    if (event.events & EPOLLIN) {
+       int received = handle_read(worker, cli, &event);
+       enum ws_frame_type type = \
+            ws_parse_input_frame(rio_buffer_get_data(cli->buffer),
+                                 cli->buffer->length,
+                                 NULL,
+                                 0);
+    } else if (event.events & EPOLLOUT) {
+
+    }
+}
+void 
     handle_http(rio_worker *worker, struct epoll_event event, rio_client *cli)
 {
     int response;
@@ -255,7 +280,7 @@ void
     
     size_t n;
     
-    if (event.events & EPOLLIN && cli->websocket == 0) {
+    if (event.events & EPOLLIN) {
         //handle read
         int received = handle_read(worker, cli, &event);
     
@@ -281,7 +306,7 @@ void
         }
 
         if (parser->upgrade) {
-            handle_websocket(worker, cli);
+            handle_websocket_connection(worker, cli);
             goto end_clean_path;
 
         } else if (received == 0) { // client disconnected!
@@ -511,7 +536,12 @@ void
                 //retrieve client info by fd and handle event
                 k = kh_get(clients, h, events[n].data.fd);
                 cli = kh_val(h, k);
-                handle_http(worker, events[n], &cli);
+
+                if (cli.websocket < 2) {
+                    handle_http(worker, events[n], &cli);
+                } else {
+                    handle_ws(worker, events[n], &cli);
+                }
             }
         }
         //dispatch responses

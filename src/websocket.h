@@ -124,6 +124,13 @@ struct handshake {
      */
     void nullhandshake(struct handshake *hs);
 
+
+    enum ws_frame_type
+        type(uint8_t* frame);
+
+    uint8_t* 
+        extract_payload(uint8_t* frame); 
+
 #ifdef  __cplusplus
 }
 #endif

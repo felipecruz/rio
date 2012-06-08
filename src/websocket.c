@@ -230,41 +230,26 @@ enum ws_frame_type ws_make_frame(const uint8_t *data, size_t data_len,
     return frame_type;
 }
 
-enum ws_frame_type ws_parse_input_frame(const uint8_t *input_frame, size_t input_len,
-        uint8_t **out_data_ptr, size_t *out_len)
+enum ws_frame_type 
+    ws_parse_input_frame(const uint8_t *input_frame, 
+                         size_t input_len,
+                         uint8_t **out_data_ptr, 
+                         size_t *out_len)
 {
     enum ws_frame_type frame_type;
+    uint64_t length = 0;
 
-    assert(out_len);
-    assert(input_len);
+//    assert(out_len);
+//    assert(input_len);
 
     if (input_len < 2)
         return WS_INCOMPLETE_FRAME;
 
-    uint8_t fin_srv_opcode = input_frame[0];
-    uint8_t mask_length = input_frame[1];
-    uint8_t mask[4] = {0x00, 0x00, 0x00, 0x00};
-    int c = 0;
+    debug_print("(ws) %d is end frame\n", _end_frame(input_frame));
+    debug_print("(ws) %d frame type\n", type(input_frame));
+    debug_print("(ws) %s content\n", (char*) extract_payload(input_frame));
 
-    memcpy(mask, input_frame + 2, 4);
-
-    uint8_t *ini = input_frame + 7;
-
-    while(*ini) {
-        *ini ^= mask[c % 4];
-        *ini++;
-        c++;
-    }
-
-    /* uint8_t *end = (uint8_t *) memchr(data_start, 0xFF, input_len - 1);
-    if (end) {
-        assert((size_t)(end - data_start) <= input_len);
-        *out_data_ptr = (uint8_t *)data_start;
-        *out_len = end - data_start;
-        frame_type = WS_TEXT_FRAME;
-    } else {
-        frame_type = WS_INCOMPLETE_FRAME;
-    }*/
+    frame_type = type(input_frame);
 
     return frame_type;
 }
@@ -276,7 +261,7 @@ int
 }
 
 enum ws_frame_type
-    _type(uint8_t *packet)
+    type(uint8_t *packet)
 {
     int opcode = packet[0] & 0xf;
 
@@ -439,13 +424,13 @@ void
 void
     test_websocket_get_frame_type(void)
 {
-    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame));
-    CU_ASSERT(WS_TEXT_FRAME == _type(&first_frame));
-    CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
-    CU_ASSERT(WS_INCOMPLETE_FRAME == _type(&second_frame));
-    CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
-    CU_ASSERT(WS_BINARY_FRAME == _type(&len_256));
-    CU_ASSERT(WS_BINARY_FRAME == _type(&len_64k));
+    CU_ASSERT(WS_TEXT_FRAME == type(&single_frame));
+    CU_ASSERT(WS_TEXT_FRAME == type(&first_frame));
+    CU_ASSERT(WS_TEXT_FRAME != type(&second_frame));
+    CU_ASSERT(WS_INCOMPLETE_FRAME == type(&second_frame));
+    CU_ASSERT(WS_TEXT_FRAME == type(&single_frame_masked));
+    CU_ASSERT(WS_BINARY_FRAME == type(&len_256));
+    CU_ASSERT(WS_BINARY_FRAME == type(&len_64k));
 }
 
 void
