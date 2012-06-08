@@ -295,7 +295,7 @@ enum ws_frame_type
 int 
     _masked(uint8_t *packet)
 {
-    return (packet[1] & 0x80) >= 0x80; 
+    return (packet[1] >> 7) & 0x1; 
 }
 
 uint64_t
