@@ -34,9 +34,7 @@
  *
  */
 
-
-#include <stdio.h>
-#include <string.h>
+#include "b64.h"
 
 static const char encode[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			     "abcdefghijklmnopqrstuvwxyz0123456789+/";
