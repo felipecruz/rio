@@ -157,7 +157,7 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
 
     char *pre_key = strcat(hs->key1, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
     SHA1_Update(&sha, pre_key, strlen(pre_key));
-    
+
     debug_print("##### BaseKey: %s\n", pre_key);
 
     unsigned char accept_key[30];
@@ -167,7 +167,7 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
 
     debug_print("##### DigestKey: %s\n", digest_key);
 
-    lws_b64_encode_string(digest_key , strlen(digest_key), accept_key, 
+    lws_b64_encode_string(digest_key , strlen(digest_key), accept_key,
                           sizeof(accept_key));
 
     debug_print("##### AcceptKey: %s\n", accept_key);
@@ -182,7 +182,7 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
         written += sprintf_P((char *)out_frame + written,
             PSTR("Sec-WebSocket-Protocol: %s\r\n"), hs->protocol);
     written += sprintf_P((char *)out_frame + written, rn);
-    *out_len = written; 
+    *out_len = written;
     return WS_OPENING_FRAME;
 }
 
@@ -191,9 +191,9 @@ enum ws_frame_type ws_make_frame(const uint8_t *data, size_t data_len,
 {
     assert(out_frame);
     assert(data);
-    
+
     if (frame_type == WS_TEXT_FRAME) {
-        
+
         uint8_t *data_ptr = (uint8_t *) data;
         uint8_t *end_ptr = (uint8_t *) data + data_len;
         out_frame[0] = 1 | 1 << 5; // 129; //(1 << 1 | 1 << 5);
@@ -222,7 +222,7 @@ enum ws_frame_type ws_make_frame(const uint8_t *data, size_t data_len,
         memcpy(&out_frame[1 + size_len], data, data_len);
     }
 
-    for (int i = 0; i < *out_len; i++) { 
+    for (int i = 0; i < *out_len; i++) {
         printf("%u ", out_frame[i]);
     }
     printf("\n");
@@ -235,7 +235,7 @@ enum ws_frame_type ws_parse_input_frame(const uint8_t *input_frame, size_t input
 {
     enum ws_frame_type frame_type;
 
-    assert(out_len); 
+    assert(out_len);
     assert(input_len);
 
     if (input_len < 2)
@@ -248,7 +248,7 @@ enum ws_frame_type ws_parse_input_frame(const uint8_t *input_frame, size_t input
 
     memcpy(mask, input_frame + 2, 4);
 
-    uint8_t *ini = input_frame + 7; 
+    uint8_t *ini = input_frame + 7;
 
     while(*ini) {
         *ini ^= mask[c % 4];
@@ -275,7 +275,7 @@ int
     return (packet[0] & 0x80) == 0x80;
 }
 
-enum ws_frame_type 
+enum ws_frame_type
     _type(uint8_t *packet)
 {
     int opcode = packet[0] & 0xf;
@@ -292,23 +292,35 @@ enum ws_frame_type
 
 }
 
-int 
+int
     _masked(uint8_t *packet)
 {
-    return (packet[1] >> 7) & 0x1; 
+    return (packet[1] >> 7) & 0x1;
+}
+
+uint64_t
+    f_uint8(uint8_t *value)
+{
+    uint64_t length = 0;
+
+    for (int i = 0; i < 4; i++) {
+        length = (length << 8) | value[i];
+    }
+
+    return length;
 }
 
 uint64_t
     _payload_length(uint8_t *packet)
 {
     int length = -1;
-    
+
     if (_masked(packet)) {
         length = packet[1] &= ~(1 << 7);
     } else {
         length = packet[1];
     }
-    
+
     if (length < 125) {
         return length;
     } else if (length == 126) {
@@ -316,10 +328,7 @@ uint64_t
         memcpy((char*) &u16l, &packet[2], 2);
         return u16l;
     } else if (length == 127) {
-        uint64_t u64l = 0;
-        memcpy((char*) &u64l, &packet[2], 8);
-        printf("64 %d\n", u64l);
-        return u64l;
+        return f_uint8(&packet[2]);
     } else {
         return length;
     }
@@ -332,7 +341,7 @@ uint8_t*
     int j = 0;
 
     mask = malloc(sizeof(uint8_t) * 4);
-    
+
     for(int i = 2; i < 6; i++) {
         mask[j] = packet[i];
         j++;
@@ -362,7 +371,7 @@ int
       *  0x89 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains a body of "Hello",
          but the contents of the body are arbitrary)
       *  0x8a 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
-         (contains a body of "Hello", matching the body of the ping) 
+         (contains a body of "Hello", matching the body of the ping)
    o  256 bytes binary message in a single unmasked frame
       *  0x82 0x7E 0x0100 [256 bytes of binary data]
    o  64KiB binary message in a single unmasked frame
@@ -370,19 +379,20 @@ int
 
 */
 
-void 
+void
     test_websocket_parse_input(void)
 {
     uint8_t single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
-    
+
     uint8_t first_frame[] = {0x01, 0x03, 0x48, 0x65, 0x6c};
     uint8_t second_frame[] = {0x80, 0x02, 0x6c, 0x6f};
 
-    uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 
+    uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f,
                                      0x9f, 0x4d, 0x51, 0x58};
 
     uint8_t len_256[] = {0x82, 0x7E, 0x0100, 0x1, 0x1, 0x1, 0x1};
-    uint8_t len_64k[] = {0x82, 0x7F, 0x0000000000010000, 0x0, 0x0, 0x0, 0x0};
+    uint8_t len_64k[] = {0x82, 0x7F, 0x00, 0x01, 0x00, 0x00, 0x10, 0x00,
+                         0x00, 0x00, 0x00, 0x00};
 
     uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
 
@@ -410,11 +420,11 @@ void
     CU_ASSERT(3 == _payload_length(&first_frame));
     CU_ASSERT(2 == _payload_length(&second_frame));
     CU_ASSERT(5 == _payload_length(&single_frame_masked));
-    
+
     CU_ASSERT(256 == _payload_length(&len_256));
     CU_ASSERT(65536 == _payload_length(&len_64k));
 
-    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked), 
+    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
                            (char*) mask, 4));
 
 }
