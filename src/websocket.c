@@ -395,49 +395,50 @@ int
     return 0;
 }
 
+/* some websocket frames from spec */
+
+/*  A single-frame unmasked text message */
+uint8_t single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
+
+/* Fragmented unmasked text message */
+uint8_t first_frame[] = {0x01, 0x03, 0x48, 0x65, 0x6c};
+uint8_t second_frame[] = {0x80, 0x02, 0x6c, 0x6f};
+
+/* A single-frame masked text messag */
+uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f,
+                                 0x9f, 0x4d, 0x51, 0x58};
+
+/* 256 bytes unmasked frame header */
+uint8_t len_256[] = {0x82, 0x7E, 0x0100, 0x1, 0x1, 0x1, 0x1};
+
+/* 64k bytes unmasked frame header */
+uint8_t len_64k[] = {0x82, 0x7F, 0x00, 0x01, 0x00, 0x00, 0x10, 0x00,
+                     0x00, 0x00, 0x00, 0x00};
+
+/* mask used in masked message */
+uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
+
+
 /*
- o  A single-frame unmasked text message
-      *  0x81 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains "Hello")
-   o  A single-frame masked text message
-      *  0x81 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
-         (contains "Hello")
-   o  A fragmented unmasked text message
-      *  0x01 0x03 0x48 0x65 0x6c (contains "Hel")
-      *  0x80 0x02 0x6c 0x6f (contains "lo")
    o  Unmasked Ping request and masked Ping response
       *  0x89 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains a body of "Hello",
          but the contents of the body are arbitrary)
       *  0x8a 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
          (contains a body of "Hello", matching the body of the ping)
-   o  256 bytes binary message in a single unmasked frame
-      *  0x82 0x7E 0x0100 [256 bytes of binary data]
-   o  64KiB binary message in a single unmasked frame
-      *  0x82 0x7F 0x0000000000010000 [65536 bytes of binary data]
-
 */
 
 void
-    test_websocket_parse_input(void)
+    test_websocket_check_end_frame(void)
 {
-    uint8_t single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
-
-    uint8_t first_frame[] = {0x01, 0x03, 0x48, 0x65, 0x6c};
-    uint8_t second_frame[] = {0x80, 0x02, 0x6c, 0x6f};
-
-    uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f,
-                                     0x9f, 0x4d, 0x51, 0x58};
-
-    uint8_t len_256[] = {0x82, 0x7E, 0x0100, 0x1, 0x1, 0x1, 0x1};
-    uint8_t len_64k[] = {0x82, 0x7F, 0x00, 0x01, 0x00, 0x00, 0x10, 0x00,
-                         0x00, 0x00, 0x00, 0x00};
-
-    uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
-
     CU_ASSERT(1 == _end_frame(&single_frame));
     CU_ASSERT(0 == _end_frame(&first_frame));
     CU_ASSERT(1 == _end_frame(&second_frame));
     CU_ASSERT(1 == _end_frame(&single_frame_masked));
+}
 
+void
+    test_websocket_get_frame_type(void)
+{
     CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame));
     CU_ASSERT(WS_TEXT_FRAME == _type(&first_frame));
     CU_ASSERT(WS_TEXT_FRAME != _type(&second_frame));
@@ -445,14 +446,22 @@ void
     CU_ASSERT(WS_TEXT_FRAME == _type(&single_frame_masked));
     CU_ASSERT(WS_BINARY_FRAME == _type(&len_256));
     CU_ASSERT(WS_BINARY_FRAME == _type(&len_64k));
+}
 
+void
+    test_websocket_check_masked(void)
+{
     CU_ASSERT(0 == _masked(&single_frame));
     CU_ASSERT(0 == _masked(&first_frame));
     CU_ASSERT(0 == _masked(&second_frame));
     CU_ASSERT(1 == _masked(&single_frame_masked));
     CU_ASSERT(0 == _masked(&len_256));
     CU_ASSERT(0 == _masked(&len_64k));
+}
 
+void
+    test_websocket_get_payload_length(void)
+{
     CU_ASSERT(5 == _payload_length(&single_frame));
     CU_ASSERT(3 == _payload_length(&first_frame));
     CU_ASSERT(2 == _payload_length(&second_frame));
@@ -460,15 +469,26 @@ void
 
     CU_ASSERT(256 == _payload_length(&len_256));
     CU_ASSERT(65536 == _payload_length(&len_64k));
+}
 
+void
+    test_websocket_extract_mask(void)
+{
     CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
                            (char*) mask, 4));
+}
 
+void
+    test_websocket_extract_payload(void)
+{
     CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame),
-                            "Hello", 5));
-
-    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame_masked),
                             "Hello", 5));
 }
 
+void
+    test_websocket_extract_masked_payload(void)
+{
+    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame_masked),
+                            "Hello", 5));
+}
 #endif

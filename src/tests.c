@@ -91,11 +91,21 @@ int main()
       return CU_get_error();
    }
  
-   if ((NULL == CU_add_test(websocket_suite, "test websocket parse input", 
-                            test_websocket_parse_input))) //||
-        //(NULL == CU_add_test(websocket_suite, "test websocket adjust",
-        //                     test_buffer_adjust))
-        //)
+   if ((NULL == CU_add_test(websocket_suite, "test websocket check end frame", 
+                            test_websocket_check_end_frame)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket get frame type",
+                            test_websocket_get_frame_type)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket check masked",
+                            test_websocket_check_masked)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket get payload length",
+                            test_websocket_get_payload_length)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket extract mask",
+                            test_websocket_extract_mask)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket extract payload",
+                            test_websocket_extract_payload)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket extract masked payload",
+                            test_websocket_extract_masked_payload))
+        )
    {
       CU_cleanup_registry();
       return CU_get_error();

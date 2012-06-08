@@ -134,5 +134,26 @@ int
 
 void
     test_websocket_parse_input(void);
+
+void
+    test_websocket_check_end_frame(void);
+
+void
+    test_websocket_get_frame_type(void);
+
+void
+    test_websocket_check_masked(void);
+    
+void
+    test_websocket_get_payload_length(void);
+
+void
+    test_websocket_extract_mask(void);
+
+void
+    test_websocket_extract_payload(void);
+    
+void
+    test_websocket_extract_masked_payload(void);
 #endif
 #endif  /* WEBSOCKET_H */
