@@ -182,46 +182,17 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
     return WS_OPENING_FRAME;
 }
 
-enum ws_frame_type ws_make_frame(const uint8_t *data, size_t data_len,
-        uint8_t *out_frame, size_t *out_len, enum ws_frame_type frame_type)
+enum ws_frame_type 
+    ws_make_frame(const uint8_t *data, 
+                  size_t data_len,
+                  uint8_t *out_frame, 
+                  size_t *out_len, 
+                  enum ws_frame_type frame_type)
 {
     assert(out_frame);
     assert(data);
 
-    if (frame_type == WS_TEXT_FRAME) {
 
-        uint8_t *data_ptr = (uint8_t *) data;
-        uint8_t *end_ptr = (uint8_t *) data + data_len;
-        out_frame[0] = 1 | 1 << 5; // 129; //(1 << 1 | 1 << 5);
-        out_frame[1] = 1;
-        out_frame[1] |= 3; //(1 << 1 | 1 << 2);
-        memcpy(&out_frame[2], data, data_len);
-        *out_len = data_len + 2;
-
-    } else if (frame_type == WS_BINARY_FRAME) {
-        size_t tmp = data_len;
-        uint8_t out_size_buf[sizeof (size_t)];
-        uint8_t *size_ptr = out_size_buf;
-        while (tmp <= 0xFF) {
-            *size_ptr = tmp & 0x7F;
-            tmp >>= 7;
-            size_ptr++;
-        }
-        *size_ptr = tmp;
-        uint8_t size_len = size_ptr - out_size_buf + 1;
-
-        assert(*out_len >= 1 + size_len + data_len);
-        out_frame[0] = '\x80';
-        uint8_t i = 0;
-        for (i = 0; i < size_len; i++) // copying big-endian length
-            out_frame[1 + i] = out_size_buf[size_len - 1 - i];
-        memcpy(&out_frame[1 + size_len], data, data_len);
-    }
-
-    for (int i = 0; i < *out_len; i++) {
-        printf("%u ", out_frame[i]);
-    }
-    printf("\n");
 
     return frame_type;
 }
@@ -409,6 +380,26 @@ uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
       *  0x8a 0x85 0x37 0xfa 0x21 0x3d 0x7f 0x9f 0x4d 0x51 0x58
          (contains a body of "Hello", matching the body of the ping)
 */
+
+#include <fcntl.h>
+#include <sys/stat.h>
+ 
+void 
+    test_frames(void)
+{
+    int fd;
+    uint8_t *frame1;
+    enum ws_frame_type type;
+
+    fd = open("tests/ws_frame.txt", O_RDONLY);
+    frame1 = malloc(sizeof(uint8_t) * 10);
+
+    read(fd, frame1, 10, 0);
+
+    type = ws_parse_input_frame(frame1, 10, NULL, 0);
+    
+    CU_ASSERT(WS_TEXT_FRAME == type);
+}
 
 void
     test_websocket_check_end_frame(void)

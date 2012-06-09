@@ -162,5 +162,8 @@ void
     
 void
     test_websocket_extract_masked_payload(void);
+
+void
+    test_frames(void);
 #endif
 #endif  /* WEBSOCKET_H */

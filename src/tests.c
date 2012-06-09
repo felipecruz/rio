@@ -104,7 +104,10 @@ int main()
        (NULL == CU_add_test(websocket_suite, "test websocket extract payload",
                             test_websocket_extract_payload)) ||
        (NULL == CU_add_test(websocket_suite, "test websocket extract masked payload",
-                            test_websocket_extract_masked_payload))
+                            test_websocket_extract_masked_payload)) ||
+       (NULL == CU_add_test(websocket_suite, "test websocket frames",
+                            test_frames))
+
         )
    {
       CU_cleanup_registry();
