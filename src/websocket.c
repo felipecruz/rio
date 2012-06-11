@@ -35,6 +35,8 @@
 #define FALSE 1
 #endif
 
+#define _HASHVALUE "258EAFA5-E914-47DA-95CA-C5AB0DC85B11" 
+
 static char rn[] PROGMEM = "\r\n";
 
 void nullhandshake(struct handshake *hs)
@@ -155,22 +157,22 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
     SHA_CTX sha;
     SHA1_Init(&sha);
 
-    char *pre_key = strcat(hs->key1, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+    char *pre_key = strcat(hs->key1, _HASHVALUE);
     SHA1_Update(&sha, pre_key, strlen(pre_key));
 
-    debug_print("##### BaseKey: %s\n", pre_key);
+    debug_print("BaseKey: %s\n", pre_key);
 
     unsigned char accept_key[30];
     unsigned char digest_key[20];
 
     SHA1_Final(digest_key, &sha);
 
-    debug_print("##### DigestKey: %s\n", digest_key);
+    debug_print("DigestKey: %s\n", digest_key);
 
     lws_b64_encode_string(digest_key , strlen(digest_key), accept_key,
                           sizeof(accept_key));
 
-    debug_print("##### AcceptKey: %s\n", accept_key);
+    debug_print("AcceptKey: %s\n", accept_key);
 
     unsigned int written = sprintf_P((char *)out_frame,
             PSTR("HTTP/1.1 101 Switching Protocols\r\n"
@@ -303,6 +305,23 @@ uint8_t*
 
     return mask;
 }
+
+uint8_t*
+    _extract_mask_len2(const uint8_t *packet)
+{
+    uint8_t *mask;
+    int j = 0;
+
+    mask = malloc(sizeof(uint8_t) * 4);
+
+    for(int i = 2; i < 6; i++) {
+        mask[j] = packet[i];
+        j++;
+    }
+
+    return mask;
+}
+
 uint8_t*
     unmask(uint8_t *packet, uint64_t length, const uint8_t *mask)
 {
@@ -399,6 +418,33 @@ void
     type = ws_parse_input_frame(frame1, 10, NULL, 0);
     
     CU_ASSERT(WS_TEXT_FRAME == type);
+    
+    free(frame1);
+    close(fd);
+
+    fd = open("tests/ws_frame2.txt", O_RDONLY);
+    frame1 = malloc(sizeof(uint8_t) * 10);
+
+    read(fd, frame1, 10, 0);
+
+    type = ws_parse_input_frame(frame1, 10, NULL, 0);
+    
+    CU_ASSERT(WS_TEXT_FRAME == type);
+
+    free(frame1);
+    close(fd);
+    
+    fd = open("tests/ws_frame3.txt", O_RDONLY);
+    frame1 = malloc(sizeof(uint8_t) * 2725);
+
+    read(fd, frame1, 10, 0);
+
+    type = ws_parse_input_frame(frame1, 10, NULL, 0);
+    
+    CU_ASSERT(WS_TEXT_FRAME == type);
+    
+    free(frame1);
+    close(fd);
 }
 
 void
@@ -450,6 +496,10 @@ void
 {
     CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
                            (char*) mask, 4));
+    
+    CU_ASSERT(0 == strncmp((char*)_extract_mask_len2(&single_frame_masked_l2),
+                           (char*) mask, 4));
+
 }
 
 void
