@@ -507,7 +507,7 @@ void
     CU_ASSERT(0 == strncmp((char*) _extract_mask_len1(single_frame_masked),
                            (char*) mask, 4));
 
-    CU_ASSERT(0 == strncmp((char*) _extract_mask_len2(&len_256_masked),
+    CU_ASSERT(0 == strncmp((char*) _extract_mask_len2(len_256_masked),
                            (char*) mask, 4));
 
 }
