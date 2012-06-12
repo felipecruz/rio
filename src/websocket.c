@@ -27,7 +27,6 @@
 #include "b64.h"
 #include <openssl/sha.h>
 
-
 #ifndef TRUE
 #define TRUE 1
 #endif
@@ -35,7 +34,7 @@
 #define FALSE 1
 #endif
 
-#define _HASHVALUE "258EAFA5-E914-47DA-95CA-C5AB0DC85B11" 
+#define _HASHVALUE "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 static char rn[] PROGMEM = "\r\n";
 
@@ -141,11 +140,6 @@ enum ws_frame_type ws_parse_handshake(const uint8_t *input_frame, size_t input_l
             !connection_flag || !upgrade_flag)
         return WS_ERROR_FRAME;
 
-    input_ptr += 2; // skip empty line
-    if (end_ptr - input_ptr < 8)
-        return WS_INCOMPLETE_FRAME;
-    memcpy(hs->key2, input_ptr, 8);
-
     return WS_OPENING_FRAME;
 }
 
@@ -184,11 +178,11 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
     return WS_OPENING_FRAME;
 }
 
-enum ws_frame_type 
-    ws_make_frame(const uint8_t *data, 
+enum ws_frame_type
+    ws_make_frame(const uint8_t *data,
                   size_t data_len,
-                  uint8_t *out_frame, 
-                  size_t *out_len, 
+                  uint8_t *out_frame,
+                  size_t *out_len,
                   enum ws_frame_type frame_type)
 {
     assert(out_frame);
@@ -199,10 +193,10 @@ enum ws_frame_type
     return frame_type;
 }
 
-enum ws_frame_type 
-    ws_parse_input_frame(const uint8_t *input_frame, 
+enum ws_frame_type
+    ws_parse_input_frame(const uint8_t *input_frame,
                          size_t input_len,
-                         uint8_t **out_data_ptr, 
+                         uint8_t **out_data_ptr,
                          size_t *out_len)
 {
     enum ws_frame_type frame_type;
@@ -253,11 +247,23 @@ int
 }
 
 uint64_t
-    f_uint8(uint8_t *value)
+    f_uint64(uint8_t *value)
 {
     uint64_t length = 0;
 
     for (int i = 0; i < 4; i++) {
+        length = (length << 8) | value[i];
+    }
+
+    return length;
+}
+
+uint16_t
+    f_uint16(uint8_t *value)
+{
+    uint16_t length = 0;
+
+    for (int i = 0; i < 2; i++) {
         length = (length << 8) | value[i];
     }
 
@@ -280,11 +286,9 @@ uint64_t
     if (length < 125) {
         return length;
     } else if (length == 126) {
-        uint16_t u16l = 0;
-        memcpy((char*) &u16l, &packet[2], 2);
-        return u16l;
+        return f_uint16(&packet[2]);
     } else if (length == 127) {
-        return f_uint8(&packet[2]);
+        return f_uint64(&packet[2]);
     } else {
         return length;
     }
@@ -314,7 +318,7 @@ uint8_t*
 
     mask = malloc(sizeof(uint8_t) * 4);
 
-    for(int i = 2; i < 6; i++) {
+    for(int i = 4; i < 8; i++) {
         mask[j] = packet[i];
         j++;
     }
@@ -340,7 +344,7 @@ uint8_t*
     extract_payload(uint8_t *packet)
 {
     uint8_t *data;
-    uint8_t *mask; 
+    uint8_t *mask;
     int m = _masked(packet);
     uint64_t length = _payload_length(packet);
 
@@ -348,6 +352,9 @@ uint8_t*
         if (length < 126) {
             mask = _extract_mask_len1(packet);
             return unmask(&packet[6], length, mask);
+        } else if (length > 126 && length < 64000) {
+            mask = _extract_mask_len2(packet);
+            return unmask(&packet[8], length, mask);
         }
         return NULL;
     } else {
@@ -382,7 +389,8 @@ uint8_t single_frame_masked[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f,
                                  0x9f, 0x4d, 0x51, 0x58};
 
 /* 256 bytes unmasked frame header */
-uint8_t len_256[] = {0x82, 0x7E, 0x0100, 0x1, 0x1, 0x1, 0x1};
+uint8_t len_256[] = {0x82, 0x7E, 0x01, 0x00, 0x1, 0x1, 0x1, 0x1};
+uint8_t len_256_masked[] = {0x82, 0x8E, 0x01, 0x00, 0x37, 0xfa, 0x21, 0x3d};
 
 /* 64k bytes unmasked frame header */
 uint8_t len_64k[] = {0x82, 0x7F, 0x00, 0x01, 0x00, 0x00, 0x10, 0x00,
@@ -402,8 +410,8 @@ uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
 
 #include <fcntl.h>
 #include <sys/stat.h>
- 
-void 
+
+void
     test_frames(void)
 {
     int fd;
@@ -416,9 +424,9 @@ void
     read(fd, frame1, 10, 0);
 
     type = ws_parse_input_frame(frame1, 10, NULL, 0);
-    
+
     CU_ASSERT(WS_TEXT_FRAME == type);
-    
+
     free(frame1);
     close(fd);
 
@@ -428,21 +436,21 @@ void
     read(fd, frame1, 10, 0);
 
     type = ws_parse_input_frame(frame1, 10, NULL, 0);
-    
+
     CU_ASSERT(WS_TEXT_FRAME == type);
 
     free(frame1);
     close(fd);
-    
-    fd = open("tests/ws_frame3.txt", O_RDONLY);
-    frame1 = malloc(sizeof(uint8_t) * 2725);
 
-    read(fd, frame1, 10, 0);
+    fd = open("tests/ws_frame4.txt", O_RDONLY);
+    frame1 = malloc(sizeof(uint8_t) * 1835);
 
-    type = ws_parse_input_frame(frame1, 10, NULL, 0);
-    
+    read(fd, frame1, 1835, 0);
+
+    type = ws_parse_input_frame(frame1, 1835, NULL, 0);
+
     CU_ASSERT(WS_TEXT_FRAME == type);
-    
+
     free(frame1);
     close(fd);
 }
@@ -450,54 +458,54 @@ void
 void
     test_websocket_check_end_frame(void)
 {
-    CU_ASSERT(1 == _end_frame(&single_frame));
-    CU_ASSERT(0 == _end_frame(&first_frame));
-    CU_ASSERT(1 == _end_frame(&second_frame));
-    CU_ASSERT(1 == _end_frame(&single_frame_masked));
+    CU_ASSERT(1 == _end_frame(single_frame));
+    CU_ASSERT(0 == _end_frame(first_frame));
+    CU_ASSERT(1 == _end_frame(second_frame));
+    CU_ASSERT(1 == _end_frame(single_frame_masked));
 }
 
 void
     test_websocket_get_frame_type(void)
 {
-    CU_ASSERT(WS_TEXT_FRAME == type(&single_frame));
-    CU_ASSERT(WS_TEXT_FRAME == type(&first_frame));
-    CU_ASSERT(WS_TEXT_FRAME != type(&second_frame));
-    CU_ASSERT(WS_INCOMPLETE_FRAME == type(&second_frame));
-    CU_ASSERT(WS_TEXT_FRAME == type(&single_frame_masked));
-    CU_ASSERT(WS_BINARY_FRAME == type(&len_256));
-    CU_ASSERT(WS_BINARY_FRAME == type(&len_64k));
+    CU_ASSERT(WS_TEXT_FRAME == type(single_frame));
+    CU_ASSERT(WS_TEXT_FRAME == type(first_frame));
+    CU_ASSERT(WS_TEXT_FRAME != type(second_frame));
+    CU_ASSERT(WS_INCOMPLETE_FRAME == type(second_frame));
+    CU_ASSERT(WS_TEXT_FRAME == type(single_frame_masked));
+    CU_ASSERT(WS_BINARY_FRAME == type(len_256));
+    CU_ASSERT(WS_BINARY_FRAME == type(len_64k));
 }
 
 void
     test_websocket_check_masked(void)
 {
-    CU_ASSERT(0 == _masked(&single_frame));
-    CU_ASSERT(0 == _masked(&first_frame));
-    CU_ASSERT(0 == _masked(&second_frame));
-    CU_ASSERT(1 == _masked(&single_frame_masked));
-    CU_ASSERT(0 == _masked(&len_256));
-    CU_ASSERT(0 == _masked(&len_64k));
+    CU_ASSERT(0 == _masked(single_frame));
+    CU_ASSERT(0 == _masked(first_frame));
+    CU_ASSERT(0 == _masked(second_frame));
+    CU_ASSERT(1 == _masked(single_frame_masked));
+    CU_ASSERT(0 == _masked(len_256));
+    CU_ASSERT(0 == _masked(len_64k));
 }
 
 void
     test_websocket_get_payload_length(void)
 {
-    CU_ASSERT(5 == _payload_length(&single_frame));
-    CU_ASSERT(3 == _payload_length(&first_frame));
-    CU_ASSERT(2 == _payload_length(&second_frame));
-    CU_ASSERT(5 == _payload_length(&single_frame_masked));
+    CU_ASSERT(5 == _payload_length(single_frame));
+    CU_ASSERT(3 == _payload_length(first_frame));
+    CU_ASSERT(2 == _payload_length(second_frame));
+    CU_ASSERT(5 == _payload_length(single_frame_masked));
 
-    CU_ASSERT(256 == _payload_length(&len_256));
-    CU_ASSERT(65536 == _payload_length(&len_64k));
+    CU_ASSERT(256 == _payload_length(len_256));
+    CU_ASSERT(65536 == _payload_length(len_64k));
 }
 
 void
     test_websocket_extract_mask(void)
 {
-    CU_ASSERT(0 == strncmp((char*)_extract_mask_len1(&single_frame_masked),
+    CU_ASSERT(0 == strncmp((char*) _extract_mask_len1(single_frame_masked),
                            (char*) mask, 4));
-    
-    CU_ASSERT(0 == strncmp((char*)_extract_mask_len2(&single_frame_masked_l2),
+
+    CU_ASSERT(0 == strncmp((char*) _extract_mask_len2(&len_256_masked),
                            (char*) mask, 4));
 
 }
@@ -505,14 +513,14 @@ void
 void
     test_websocket_extract_payload(void)
 {
-    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame),
+    CU_ASSERT(0 == strncmp((char*) extract_payload(single_frame),
                             "Hello", 5));
 }
 
 void
     test_websocket_extract_masked_payload(void)
 {
-    CU_ASSERT(0 == strncmp((char*) extract_payload(&single_frame_masked),
+    CU_ASSERT(0 == strncmp((char*) extract_payload(single_frame_masked),
                             "Hello", 5));
 }
 #endif
