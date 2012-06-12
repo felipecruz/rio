@@ -168,7 +168,8 @@ int
 
     cli->buffer = new_rio_buffer_size(4096);
         
-    debug_print("Handle Read from %d websocket(%d)\n", cli->fd, 
+    debug_print("\n ============ INPUT ==============\n"
+                "Handle Read from %d websocket(%d)\n", cli->fd, 
                                                        cli->websocket);
 
     do {
@@ -204,7 +205,7 @@ int
             break;
         } else if (received == 0) {
             //client disconnected
-            return 0;
+            break;
         } else {
             total_received += received;
             debug_print("READ AGAIN on %d\n", cli->fd);
@@ -219,7 +220,8 @@ int
 }
 
 void
-    handle_websocket_connection(rio_worker *worker, rio_client *cli)
+    handle_websocket_connection(rio_worker *worker, rio_client *cli,
+                                struct epoll_event *event)
 {
     int ret;
     size_t size = 4096;
@@ -238,6 +240,10 @@ void
     if (frame_type == WS_INCOMPLETE_FRAME ||
         frame_type == WS_ERROR_FRAME) {
         debug_print("Websocket frame error or incomplete\n", cli->fd);
+        rio_buffer_free(&cli->buffer);
+        close(cli->fd);
+        epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, &event);
+        return;
     }
     
     rio_buffer_free(&cli->buffer);
@@ -261,16 +267,25 @@ uint8_t _fake_single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
 void 
     handle_ws(rio_worker *worker, struct epoll_event event, rio_client *cli)
 {
+    int ret;
+    khiter_t k;
+
     if (event.events & EPOLLIN) {
        int received = handle_read(worker, cli, &event);
+
+       if (received <= 0) {
+            return;
+       }
+
        enum ws_frame_type type = \
             ws_parse_input_frame(rio_buffer_get_data(cli->buffer),
                                  cli->buffer->length,
                                  NULL,
                                  0);
+
             rio_buffer_free(&cli->buffer);
             cli->buffer = new_rio_buffer();
-            rio_buffer_copy_data(cli->buffer, _fake_single_frame, 14); 
+            rio_buffer_copy_data(cli->buffer, _fake_single_frame, 7); 
             handle_write(worker, cli);
 
     } else if (event.events & EPOLLOUT) {
@@ -315,7 +330,7 @@ void
         }
 
         if (parser->upgrade) {
-            handle_websocket_connection(worker, cli);
+            handle_websocket_connection(worker, cli, &event);
             goto end_clean_path;
 
         } else if (received == 0) { // client disconnected!
@@ -517,7 +532,7 @@ void
     }
 
     //configure epoll events and file descriptor
-    ev.events = EPOLLIN | EPOLLPRI;
+    ev.events = EPOLLIN | EPOLLPRI | EPOLLET;
     ev.data.fd = runtime->server_fd;
     
     //add listen socket to epoll
