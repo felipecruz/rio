@@ -352,7 +352,7 @@ uint8_t*
         if (length < 126) {
             mask = _extract_mask_len1(packet);
             return unmask(&packet[6], length, mask);
-        } else if (length > 126 && length < 64000) {
+        } else if (length > 126 && length < 65536) {
             mask = _extract_mask_len2(packet);
             return unmask(&packet[8], length, mask);
         }
@@ -360,6 +360,8 @@ uint8_t*
     } else {
         if (length < 126) {
             return &packet[2];
+        } else if (length > 126 && length < 65536) {
+            return &packet[4];
         }
         return NULL;
     }
