@@ -1,10 +1,12 @@
 ===============================
-rio - minimalist http server 
+rio - http broker 
 ===============================
 
 **this project is a work in progress**
 
-rio is a minimalist http server that act as broker between browsers and your (python, ruby and others) workers.
+rio is a http server that act as broker between browsers and your (python, ruby and others) workers.
+
+The first main goal is to profile full  websockets (http://tools.ietf.org/html/rfc6455) compatibility. 
 
 If you're looking for similar projects, you should check:
 
