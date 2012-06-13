@@ -122,7 +122,7 @@ void
     if (cli->websocket == 1)
         cli->websocket = 2;
     
-    debug_print("Do Write sent: %d from: %d\n", sent, 
+    debug_print("Do Write sent: %d from: %zu\n", sent, 
                                                 cli->buffer->length);
  
     // if it's a regular connection and since we don't support chunked responses
@@ -214,7 +214,7 @@ int
     
     cli->buffer->length = total_received;
 
-    debug_print("Total received %d\n", total_received);
+    debug_print("Total received %zu\n", total_received);
 
     return received;
 }
@@ -242,7 +242,7 @@ void
         debug_print("Websocket frame error or incomplete\n", cli->fd);
         rio_buffer_free(&cli->buffer);
         close(cli->fd);
-        epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, &event);
+        epoll_ctl(worker->epoll_fd, EPOLL_CTL_DEL, cli->fd, event);
         return;
     }
     
@@ -341,7 +341,7 @@ void
             free(parser);
             return;
         } else if (n != received) {
-            debug_print("Error parsing, closing socket n:%d received:%d\n", 
+            debug_print("Error parsing, closing socket n:%zu received:%d\n", 
                         n, received);
             
             //delete fd from epoll and close
