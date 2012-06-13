@@ -67,7 +67,7 @@ void
     handle_write(rio_worker *worker, rio_client *cli) 
 {
     struct epoll_event ev;
-    int s, ret;
+    int ret;
     khiter_t k;
 
     debug_print("Handle Write: %d : %s\n", cli->fd, 
@@ -267,9 +267,6 @@ uint8_t _fake_single_frame[] = {0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
 void 
     handle_ws(rio_worker *worker, struct epoll_event event, rio_client *cli)
 {
-    int ret;
-    khiter_t k;
-
     if (event.events & EPOLLIN) {
        int received = handle_read(worker, cli, &event);
 
@@ -282,6 +279,8 @@ void
                                  cli->buffer->length,
                                  NULL,
                                  0);
+            
+            debug_print("Websocket frame type %d\n", (int) type);
 
             rio_buffer_free(&cli->buffer);
             cli->buffer = new_rio_buffer();
@@ -299,9 +298,6 @@ void
 {
     int response;
 
-    char buf[4096];
-    char resp[1024];
-    
     size_t n;
     
     if (event.events & EPOLLIN) {
@@ -384,7 +380,6 @@ void
     free_clients()
 {
     khiter_t element;
-    rio_client *cli;
 
     debug_print("Closing clients structures\n", h);
     

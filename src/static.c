@@ -25,7 +25,6 @@ void
     destroy_static_server()
 {
     khiter_t element;
-    cached_file *file;
 
     debug_print("Closing open files\n", f);
     
@@ -41,13 +40,11 @@ void
 void
     handle_static(rio_client *cli, char *path) 
 {
-    int ret, num_read, fd;
+    int ret, fd;
  
     char *filename;
     char *response;
     char *fextension;
-    char *dup;
-    char buf[1024];
      
     //key must be 'duplicated' in order to gain another memory
     //address

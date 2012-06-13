@@ -59,9 +59,6 @@ void
 {
     int rc;
     int fd;
-    char buf[4096];
-    
-    size_t offset = 0;
     
     rio_client cli;
     zmq_msg_t msg;

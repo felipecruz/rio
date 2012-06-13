@@ -303,8 +303,6 @@ uint8_t*
 uint8_t*
     unmask(uint8_t *packet, uint64_t length, uint8_t *mask)
 {
-    int i = 0;
-
     for (int i = 0; i < length; i++) {
         packet[i] ^= mask[i % 4];
     }
@@ -317,7 +315,6 @@ uint8_t*
 uint8_t*
     extract_payload(uint8_t *packet)
 {
-    uint8_t *data;
     uint8_t *mask;
     int m = _masked(packet);
     uint64_t length = _payload_length(packet);
@@ -350,7 +347,6 @@ enum ws_frame_type
                          size_t *out_len)
 {
     enum ws_frame_type frame_type;
-    uint64_t length = 0;
 
 //    assert(out_len);
 //    assert(input_len);
