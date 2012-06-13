@@ -179,7 +179,7 @@ enum ws_frame_type ws_get_handshake_answer(const struct handshake *hs,
 }
 
 enum ws_frame_type
-    ws_make_frame(const uint8_t *data,
+    ws_make_frame(uint8_t *data,
                   size_t data_len,
                   uint8_t *out_frame,
                   size_t *out_len,
@@ -187,32 +187,6 @@ enum ws_frame_type
 {
     assert(out_frame);
     assert(data);
-
-
-
-    return frame_type;
-}
-
-enum ws_frame_type
-    ws_parse_input_frame(const uint8_t *input_frame,
-                         size_t input_len,
-                         uint8_t **out_data_ptr,
-                         size_t *out_len)
-{
-    enum ws_frame_type frame_type;
-    uint64_t length = 0;
-
-//    assert(out_len);
-//    assert(input_len);
-
-    if (input_len < 2)
-        return WS_INCOMPLETE_FRAME;
-
-    debug_print("(ws) %d is end frame\n", _end_frame(input_frame));
-    debug_print("(ws) %d frame type\n", type(input_frame));
-    debug_print("(ws) %s content\n", (char*) extract_payload(input_frame));
-
-    frame_type = type(input_frame);
 
     return frame_type;
 }
@@ -295,7 +269,7 @@ uint64_t
 }
 
 uint8_t*
-    _extract_mask_len1(const uint8_t *packet)
+    _extract_mask_len1(uint8_t *packet)
 {
     uint8_t *mask;
     int j = 0;
@@ -311,7 +285,7 @@ uint8_t*
 }
 
 uint8_t*
-    _extract_mask_len2(const uint8_t *packet)
+    _extract_mask_len2(uint8_t *packet)
 {
     uint8_t *mask;
     int j = 0;
@@ -327,7 +301,7 @@ uint8_t*
 }
 
 uint8_t*
-    unmask(uint8_t *packet, uint64_t length, const uint8_t *mask)
+    unmask(uint8_t *packet, uint64_t length, uint8_t *mask)
 {
     int i = 0;
 
@@ -368,6 +342,32 @@ uint8_t*
     return NULL;
 
 }
+
+enum ws_frame_type
+    ws_parse_input_frame(uint8_t *input_frame,
+                         size_t input_len,
+                         uint8_t **out_data_ptr,
+                         size_t *out_len)
+{
+    enum ws_frame_type frame_type;
+    uint64_t length = 0;
+
+//    assert(out_len);
+//    assert(input_len);
+
+    if (input_len < 2)
+        return WS_INCOMPLETE_FRAME;
+
+    debug_print("(ws) %d is end frame\n", _end_frame(input_frame));
+    debug_print("(ws) %d frame type\n", type(input_frame));
+    debug_print("(ws) %s content\n", (char*) extract_payload(input_frame));
+
+    frame_type = type(input_frame);
+
+    return frame_type;
+}
+
+
 
 #if TEST
 #include "CUnit/CUnit.h"

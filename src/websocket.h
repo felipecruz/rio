@@ -104,7 +104,7 @@ struct handshake {
      * @param frame_type .in. [WS_TEXT_FRAME] frame type to build
      * @return [WS_ERROR_FRAME, WS_TEXT_FRAME]
      */
-    enum ws_frame_type ws_make_frame(const uint8_t *data, size_t data_len,
+    enum ws_frame_type ws_make_frame(uint8_t *data, size_t data_len,
         uint8_t *out_frame, size_t *out_len, enum ws_frame_type frame_type);
 
     /**
@@ -115,7 +115,7 @@ struct handshake {
      * @param out_len .in.out. length of out data buffer. Return length of extracted data
      * @return [WS_INCOMPLETE_FRAME, WS_TEXT_FRAME, WS_CLOSING_FRAME, WS_ERROR_FRAME]
      */
-    enum ws_frame_type ws_parse_input_frame(const uint8_t *input_frame, size_t input_len,
+    enum ws_frame_type ws_parse_input_frame(uint8_t *input_frame, size_t input_len,
         uint8_t **out_data_ptr, size_t *out_len);
 
     /**
