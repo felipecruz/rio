@@ -282,6 +282,13 @@ void
             
             debug_print("Websocket frame type %d\n", (int) type);
 
+            if (type == WS_CLOSING_FRAME) {
+                //TODO send a closing frame reply?
+                rio_buffer_free(&cli->buffer);
+                close(cli->fd);
+                return;
+            }
+
             rio_buffer_free(&cli->buffer);
             cli->buffer = new_rio_buffer();
             rio_buffer_copy_data(cli->buffer, _fake_single_frame, 7); 
