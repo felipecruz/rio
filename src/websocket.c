@@ -210,6 +210,10 @@ enum ws_frame_type
         return WS_BINARY_FRAME;
     } else if (opcode == 0x08) {
         return WS_CLOSING_FRAME;
+    } else if (opcode == 0x09) {
+        return WS_PING_FRAME;
+    } else if (opcode == 0x0A) {
+        return WS_PONG_FRAME;
     }
 
 }
@@ -348,9 +352,6 @@ enum ws_frame_type
 {
     enum ws_frame_type frame_type;
 
-//    assert(out_len);
-//    assert(input_len);
-
     if (input_len < 2)
         return WS_INCOMPLETE_FRAME;
 
@@ -397,7 +398,10 @@ uint8_t len_64k[] = {0x82, 0x7F, 0x00, 0x01, 0x00, 0x00, 0x10, 0x00,
 /* mask used in masked message */
 uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
 
+uint8_t unmasked_ping[] = {0x89, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f};
 
+uint8_t masked_pong[] = {0x8a, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 
+                       0x51, 0x58};
 /*
    o  Unmasked Ping request and masked Ping response
       *  0x89 0x05 0x48 0x65 0x6c 0x6c 0x6f (contains a body of "Hello",
@@ -472,6 +476,8 @@ void
     CU_ASSERT(WS_TEXT_FRAME == type(single_frame_masked));
     CU_ASSERT(WS_BINARY_FRAME == type(len_256));
     CU_ASSERT(WS_BINARY_FRAME == type(len_64k));
+    CU_ASSERT(WS_PING_FRAME == type(unmasked_ping));
+    CU_ASSERT(WS_PONG_FRAME == type(masked_pong));
 }
 
 void
@@ -513,6 +519,9 @@ void
 {
     CU_ASSERT(0 == strncmp((char*) extract_payload(single_frame),
                             "Hello", 5));
+    
+    CU_ASSERT(0 == strncmp((char*) extract_payload(unmasked_ping),
+                            "Hello", 5));
 }
 
 void
@@ -520,5 +529,9 @@ void
 {
     CU_ASSERT(0 == strncmp((char*) extract_payload(single_frame_masked),
                             "Hello", 5));
+
+    CU_ASSERT(0 == strncmp((char*) extract_payload(masked_pong),
+                            "Hello", 5));
+
 }
 #endif

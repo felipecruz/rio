@@ -62,7 +62,9 @@ enum ws_frame_type {
     WS_TEXT_FRAME = 3,
     WS_BINARY_FRAME = 4,
     WS_OPENING_FRAME = 5,
-    WS_CLOSING_FRAME = 6
+    WS_CLOSING_FRAME = 6,
+    WS_PING_FRAME = 7,
+    WS_PONG_FRAME = 8
 };
 
 struct handshake {
