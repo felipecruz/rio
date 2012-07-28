@@ -19,7 +19,7 @@ static int
     if (client->path == NULL) {
         error_exit("Malloc");
     }    
-    strncpy(client->path, at, len+1);
+    strncpy(client->path, at, len);
     client->path[len] = '\0';
 
     client->method = (unsigned char) parser->method;
