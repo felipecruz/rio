@@ -366,13 +366,11 @@ void
     }
 
     //check sockets flags and set non-blocking after
-    if (-1 == (flags = fcntl(new_connection_socket, 
-                                F_GETFL, 0))) {
+    if (-1 == (flags = fcntl(new_connection_socket, F_GETFL, 0))) {
         flags = 0;
     }
-    if (fcntl(new_connection_socket, 
-                F_SETFL, 
-                flags | O_NONBLOCK) == -1) {
+
+    if (fcntl(new_connection_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
         error_exit("Could not set client socket non-blocking");
     }
     
@@ -381,14 +379,16 @@ void
 
     //add socket to epoll
     if (epoll_ctl(worker->epoll_fd, 
-                    EPOLL_CTL_ADD, 
-                    new_connection_socket, 
-                    &ev) == -1) {
+                  EPOLL_CTL_ADD, 
+                  new_connection_socket, 
+                  &ev) == -1) {
         error_exit("Could not add conn_sock to epoll");
     }
 
     //store client information
     cli.fd = new_connection_socket;
+    cli.websocket = 0;
+    cli.buffer = NULL;
 
     k = kh_put(clients, h, new_connection_socket , &ret);
     kh_value(h, k) = cli;
