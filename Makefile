@@ -13,10 +13,22 @@ all: http_parser.o websocket.o
           $(FAST) $(LIBS) $(CFLAGS) -o rio -DDEBUG=0
 
 debug: http_parser.o websocket.o
-	$(CC) http-parser/http_parser.o -g src/utils.c src/buffer.c src/dispatch.c src/static.c src/network.c src/rio.c -O2 -lcrypto -lzmq -lczmq -lmsgpack -std=c99 -o rio -DDEBUG=1 
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+          -g src/utils.c src/buffer.c src/dispatch.c \
+             src/static.c src/network.c src/rio.c \
+             $(LIBS) $(CFLAGS) -o rio -DDEBUG=1
+
 test: http_parser.o websocket.o
-	$(CC) http-parser/http_parser.o -g src/utils.c src/buffer.c src/dispatch.c src/static.c src/network.c src/tests.c -O2 -lcrypto -lzmq -lczmq -lmsgpack -lcunit -std=c99 -o test_rio -DDEBUG=1 -DTEST=1
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+          -g src/utils.c src/buffer.c src/dispatch.c \
+             src/static.c src/network.c src/rio.c \
+             $(LIBS) $(CFLAGS) -o rio -DDEBUG=0
+		     -lcunit -o test_rio -DDEBUG=1 -DTEST=1
 	./test_rio
+
+clean:
+	rm -f rio
+	rm -f test_rio
 
 HTTP_PARSER_DIR=http-parser
 CWS_DIR=cws
