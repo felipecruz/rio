@@ -28,9 +28,8 @@ leak: http_parser.o websocket.o
 test: http_parser.o websocket.o
 	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
-             src/static.c src/network.c src/rio.c \
-             $(LIBS) $(CFLAGS) -o rio -DDEBUG=0
-		     -lcunit -o test_rio -DDEBUG=1 -DTEST=1
+             src/static.c src/network.c src/tests.c \
+             $(LIBS) $(CFLAGS) -lcunit -o test_rio -DDEBUG=1 -DTEST=1
 	./test_rio
 
 clean:
