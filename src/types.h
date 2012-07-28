@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "khash.h"
@@ -21,7 +22,7 @@ typedef struct {
 } rio_runtime;
 
 typedef struct {
-    void* content;
+    uint8_t *content;
     size_t length;
     int where;
     int read_count;
@@ -33,6 +34,7 @@ typedef struct {
     char *path;
     unsigned char method;
     rio_buffer *buffer;
+    int websocket;
 } rio_client;
 
 KHASH_MAP_INIT_INT(clients, rio_client)

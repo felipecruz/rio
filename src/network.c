@@ -336,9 +336,6 @@ int
 }
 
 void
-    run_master(rio_runtime *runtime);
-
-void
     accept_incoming_connection(rio_runtime *runtime, rio_worker *worker)
 {
     int new_connection_socket;
