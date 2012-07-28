@@ -1,5 +1,6 @@
 #include "network.h"
 #include "buffer.h"
+#include "websocket.h"
 
 int eag = 0;
 
