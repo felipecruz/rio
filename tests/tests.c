@@ -18,10 +18,9 @@
 
 #include <stdlib.h>
 
-#include "network.h"
-#include "static.h"
-#include "dispatch.h"
-#include "buffer.h"
+#include "test_static.c"
+#include "test_dispatch.c"
+#include "test_buffer.c"
 
 #include "CUnit/Basic.h"
 

@@ -37,18 +37,3 @@ void
 
 void
     rio_buffer_adjust(rio_buffer *buffer, size_t to);
-
-#if TEST
-int
-    init_buffer_test_suite(void);
-
-void
-    test_buffer_new(void);
-
-void
-    test_buffer_get_data(void);
-
-void
-    test_buffer_adjust(void);
-
-#endif

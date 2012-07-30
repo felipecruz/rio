@@ -35,16 +35,3 @@ const char*
 
 #else
 #endif
-
-#if TEST
-int
-    init_static_test_suite(void);
-
-void
-    test_file_extension(void);
-
-void
-    test_mime_types(void);
-
-#endif
-

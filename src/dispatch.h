@@ -26,12 +26,3 @@ int
     is_filename(char *path);
 #else
 #endif
-
-#if TEST
-int
-    init_dispatch_test_suite(void);
-
-void
-    test_is_filename(void);
-
-#endif
