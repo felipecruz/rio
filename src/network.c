@@ -114,7 +114,7 @@ void
         }
     } while (sent > 0 && rio_buffer_get_data(cli->buffer) != NULL);
 
-    debug_print("Do Write sent: %d strlen: %d\n", sent, cli->buffer->length);
+    debug_print("Do Write sent: %d strlen: %zu\n", sent, cli->buffer->length);
 
     remove_and_close(cli, worker, event);
 
@@ -172,13 +172,13 @@ int
         }
     } while (received > 0 && rio_buffer_get_data(cli->buffer) != NULL);
 
-    debug_print("Total received %d\n", total_received);
+    debug_print("Total received %zu\n", total_received);
 
     cli->buffer->length = total_received;
     return received;
 }
 
-void
+int
     remove_and_close(rio_client *client,
                      rio_worker *worker,
                      struct epoll_event *event)
@@ -248,7 +248,7 @@ void
             free(parser);
             return;
         } else if (n != received) {
-            debug_print("Error parsing, closing socket n:%d received:%d\n",
+            debug_print("Error parsing, closing socket n:%zu received:%d\n",
                         n, received);
 
             //delete fd from epoll and close

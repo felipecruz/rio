@@ -71,7 +71,7 @@ void
 
     zmq_msg_init(&msg);
     while ((rc = zmq_recv(subscriber, &msg, ZMQ_NOBLOCK)) == 0) {
-        debug_print("ZMQ message length: %d\n", zmq_msg_size(&msg));
+        debug_print("ZMQ message length: %zu\n", zmq_msg_size(&msg));
         if (zmq_msg_size(&msg) > 0) {
             struct epoll_event ev;
             khiter_t k;

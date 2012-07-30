@@ -30,5 +30,10 @@ void
 
 void
     run_master(rio_runtime *runtime);
+
+int
+    remove_and_close(rio_client *client,
+                     rio_worker *worker,
+                     struct epoll_event *event);
 #else
 #endif
