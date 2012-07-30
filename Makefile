@@ -26,9 +26,9 @@ leak: http_parser.o websocket.o
 		   sudo valgrind --leak-check=full ./rio
 
 test: http_parser.o websocket.o
-	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+	$(CC) -I cws/src -I src/ http-parser/http_parser.o cws/b64.o cws/websocket.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
-             src/static.c src/network.c src/tests.c \
+             src/static.c src/network.c tests/tests.c \
              $(LIBS) $(CFLAGS) -lcunit -o test_rio -DDEBUG=1 -DTEST=1
 	./test_rio
 
