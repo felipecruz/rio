@@ -68,7 +68,6 @@ void
     int s, ret;
     khiter_t k;
 
-    //cli->buffer = malloc(sizeof(char) * (strlen(resp)+1));
     cli->buffer = new_rio_buffer_size(strlen(resp));
     rio_buffer_copy_data(cli->buffer, resp, strlen(resp));
 
@@ -87,7 +86,6 @@ void
 
     k = kh_put(clients, h, cli->fd , &ret);
     kh_value(h, k) = *cli;
-
 }
 
 void
@@ -109,8 +107,7 @@ void
                         cli->fd, errno);
             break;
         } else if (sent < 0 && errno == EAGAIN) {
-             debug_print("Do Write: EAGAIN on fd: %d\n",
-                        cli->fd);
+             debug_print("Do Write: EAGAIN on fd: %d\n", cli->fd);
              break;
         } else if (sent > 0) {
             rio_buffer_adjust(cli->buffer, sent);
@@ -121,9 +118,6 @@ void
 
     remove_and_close(cli, worker, event);
 
-    if (cli->buffer != NULL) {
-        rio_buffer_free(&cli->buffer);
-    }
 }
 
 int
@@ -201,6 +195,10 @@ void
                                             client->fd, worker->epoll_fd);
     }
 
+    if (client->buffer != NULL) {
+        rio_buffer_free(&client->buffer);
+    }
+
     return rc;
 }
 
@@ -222,7 +220,7 @@ void
         http_parser *parser = malloc(sizeof(http_parser));
 
         if (!parser){
-          error_exit("malloc error: http_parser");
+            error_exit("malloc error: http_parser");
         }
 
         http_parser_init(parser, HTTP_REQUEST);
@@ -243,8 +241,10 @@ void
             //#TODO: what to do?
         } else if (received == 0) { // client disconnected!
             debug_print("Client %d Disconnected!\n", cli->fd);
+
+            //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
-            rio_buffer_free(&cli->buffer);
+
             free(parser);
             return;
         } else if (n != received) {
@@ -254,7 +254,6 @@ void
             //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
 
-            rio_buffer_free(&cli->buffer);
             free(parser);
             return;
         }
@@ -268,6 +267,7 @@ void
         }
 
         debug_print("Freeing %s\n", cli->path);
+
         free(cli->path);
         cli->path = NULL;
         free(parser);
