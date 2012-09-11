@@ -6,27 +6,27 @@ LIBS=-lcrypto -lzmq -lczmq -lmsgpack
 FAST=-O3
 DEBUG=-g
 
-all: http_parser.o websocket.o
-	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+all: http_parser.o cws.o
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           src/utils.c src/buffer.c src/dispatch.c \
           src/static.c src/network.c src/rio.c \
           $(FAST) $(LIBS) $(CFLAGS) -o rio -DDEBUG=0
 
-debug: http_parser.o websocket.o
-	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+debug: http_parser.o cws.o
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
              src/static.c src/network.c src/rio.c \
              $(LIBS) $(CFLAGS) -o rio -DDEBUG=1
 
-leak: http_parser.o websocket.o
-	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/websocket.o \
+leak: http_parser.o cws.o
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
              src/static.c src/network.c src/rio.c \
              $(LIBS) $(CFLAGS) -o rio -DDEBUG=1
 		   sudo valgrind --leak-check=full ./rio
 
-test: http_parser.o websocket.o
-	$(CC) -I cws/src -I src/ http-parser/http_parser.o cws/b64.o cws/websocket.o \
+test: http_parser.o cws.o
+	$(CC) -I cws/src -I src/ http-parser/http_parser.o cws/b64.o cws/cws.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
              src/static.c src/network.c tests/tests.c \
              $(LIBS) $(CFLAGS) -lcunit -o test_rio -DDEBUG=1 -DTEST=1
@@ -39,7 +39,7 @@ clean:
 HTTP_PARSER_DIR=http-parser
 CWS_DIR=cws
 
-websocket.o:
+cws.o:
 	cd $(CWS_DIR); $(MAKE)
 
 http_parser.o:
