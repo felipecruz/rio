@@ -19,7 +19,7 @@
 #include "static.h"
 #include "buffer.h"
 
-#define MAX_EVENTS 128
+#define MAX_EVENTS 1024
 #ifndef __NETWORK_H
 #define __NETWORK_H
 int 
@@ -27,6 +27,9 @@ int
 
 void
     run_worker(int id, rio_worker* worker, rio_runtime *runtime);
+
+void
+    run_dispatcher_worker(int id, rio_worker* worker, rio_runtime *runtime);
 
 void
     run_master(rio_runtime *runtime);

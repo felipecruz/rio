@@ -1,6 +1,6 @@
 #include "network.h"
 #include "buffer.h"
-#include "websocket.h"
+#include "cws.h"
 
 int eag = 0;
 
@@ -213,10 +213,8 @@ void
     size_t n;
 
     if (event.events & EPOLLIN) {
-        //handle read
         int received = handle_read(worker, cli, &event);
 
-        //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
 
         if (!parser){
@@ -225,10 +223,8 @@ void
 
         http_parser_init(parser, HTTP_REQUEST);
 
-        //set parser data
         parser->data = (void*)cli;
 
-        //execute http parsing only if data was read
         if (received > 0) {
             debug_print("Execute http parsing client: %d\n", cli->fd);
             n = http_parser_execute(parser,
@@ -242,7 +238,6 @@ void
         } else if (received == 0) { // client disconnected!
             debug_print("Client %d Disconnected!\n", cli->fd);
 
-            //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
 
             free(parser);
@@ -251,7 +246,6 @@ void
             debug_print("Error parsing, closing socket n:%zu received:%d\n",
                         n, received);
 
-            //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
 
             free(parser);
@@ -272,7 +266,6 @@ void
         cli->path = NULL;
         free(parser);
     } else if (event.events & EPOLLOUT) {
-        //if socket is ready to write, do it!
         do_write(worker, cli, &event);
     }
 }
@@ -449,25 +442,23 @@ void
         size_epoll_events = epoll_wait(worker->epoll_fd,
                                        events,
                                        MAX_EVENTS,
-                                       100);
+                                       0);
 
         if (size_epoll_events == -1 && errno != EWOULDBLOCK) {
             break;
         }
 
         for (int n = 0; n < size_epoll_events; ++n) {
-            //if event fd == server fd -> accept new connection
             if (events[n].data.fd == runtime->server_fd) {
                 accept_incoming_connection(runtime, worker);
-            } else { //handle in out readyness :)
+            } else {
                 //retrieve client info by fd and handle event
                 k = kh_get(clients, h, events[n].data.fd);
                 cli = kh_val(h, k);
                 handle_http(worker, events[n], &cli);
             }
         }
-        //dispatch responses
-        dispatch_responses(worker);
+        //dispatch_responses(worker);
 
         //look for master messages
         zmq_msg_t msg;
@@ -497,6 +488,61 @@ void
 
     free_clients();
     destroy_static_server();
+    destroy_dispatcher();
+    close(worker->epoll_fd);
+}
+
+
+
+void
+    run_dispatcher_worker(int id, rio_worker* worker, rio_runtime *runtime)
+{
+    int size_epoll_events;
+    int rc;
+
+    struct epoll_event ev, events[MAX_EVENTS];
+
+    sprintf(worker->name, "worker %d", id);
+    debug_print("Identifying worker as %s pid %d\n", worker->name,
+                                                     getpid());
+
+    init_dispatcher();
+
+    worker->zmq_context = zmq_init(1);
+    worker->master = zmq_socket(worker->zmq_context, ZMQ_SUB);
+
+    zmq_setsockopt(worker->master, ZMQ_SUBSCRIBE, "", strlen(""));
+    zmq_connect(worker->master, "ipc:///tmp/rio_master.sock");
+
+    while (1) {
+        //dispatch_responses(worker);
+
+        //look for master messages
+        zmq_msg_t msg;
+        zmq_msg_init(&msg);
+        rc = zmq_recv(worker->master, &msg, ZMQ_NOBLOCK);
+        if (rc == 0) {
+            debug_print("Worker %d Received %s from master\n",
+                                            id,
+                                            (char *) zmq_msg_data(&msg));
+        }
+
+        if (strcmp((char *) zmq_msg_data(&msg), "terminate") == 0) {
+            zmq_msg_close(&msg);
+            break;
+        }
+
+        zmq_msg_close(&msg);
+
+    }
+    debug_print("\nWorker terminating gracefully\n", worker);
+
+    rc = zmq_close(worker->master);
+    debug_print("Worker ZMQ Socket close return %d\n", rc);
+
+    rc = zmq_term(worker->zmq_context);
+    debug_print("Worker ZMQ Context termination return :%d\n", rc);
+
     destroy_dispatcher();
     close(worker->epoll_fd);
 }

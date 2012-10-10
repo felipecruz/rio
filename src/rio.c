@@ -71,8 +71,11 @@ int main(int argc, char **args) {
                 break;
             case 0:
                 //handle child
+                //if (i == 0)
                 run_worker(i, runtime->workers[i], runtime);
-                _exit(0);
+                //else
+                 //   run_dispatcher_worker(i, runtime->workers[i-1], runtime);
+                //_exit(0);
             default:
                 debug_print("Master after fork\n", runtime);
         }

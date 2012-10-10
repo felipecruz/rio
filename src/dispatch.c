@@ -5,7 +5,7 @@
 #include "static.h"
 
 char *default_response = 
-    "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
+    "HTTP/1.1 200 OK\r\nContent-Type: %s; charset=utf-8\r\n"
     "Server: rio 0.0.1\r\n"
     "Content-Length: %d\r\n\n%s";
 
@@ -27,12 +27,12 @@ void
     context = zmq_init(1);
     
     publisher = zmq_socket(context, ZMQ_PUSH);
-    subscriber =  zmq_socket(context, ZMQ_SUB);
+    subscriber =  zmq_socket(context, ZMQ_PULL);
 
     zmq_bind(publisher, "tcp://127.0.0.1:5555");
     zmq_bind(subscriber, "tcp://127.0.0.1:4444");
 
-    zmq_setsockopt(subscriber, ZMQ_SUBSCRIBE, "", strlen(""));
+    //zmq_setsockopt(subscriber, ZMQ_SUBSCRIBE, "", strlen(""));
 
     queue = zlist_new();
 }
@@ -58,7 +58,7 @@ void
     dispatch_responses(rio_worker *worker)
 {
     int rc;
-    int fd;
+    int fd, len_content_type, len_content;
     char buf[4096];
     
     size_t offset = 0;
@@ -92,12 +92,31 @@ void
             msgpack_unpacker_next(&pac, &result);
             
             msgpack_object _fd;
+            
+            msgpack_object _len_content_type;
+            msgpack_object _content_type;
+
+            msgpack_object _len_content;
             msgpack_object _content;
 
             _fd = result.data.via.array.ptr[0];
-            _content = result.data.via.array.ptr[1];
+            _len_content_type = result.data.via.array.ptr[1];
+            _content_type = result.data.via.array.ptr[2];
+            _len_content = result.data.via.array.ptr[3];
+            _content = result.data.via.array.ptr[4];
             
             fd = (int) _fd.via.u64;
+            len_content_type = (int) _len_content_type.via.u64;
+            len_content = (int) _len_content.via.u64;
+
+            char* b = malloc(sizeof(char) * (len_content + 1));
+            strncpy(b, _content.via.raw.ptr, len_content);
+            b[len_content] = '\0';
+
+            char* a = malloc(sizeof(char) * (len_content_type + 1));
+            strncpy(a, _content_type.via.raw.ptr, len_content_type);
+            a[len_content_type] = '\0';
+//            _content.via.raw.ptr[len_content] = '\0';
 
             k = kh_get(clients, h, fd);
             cli = kh_val(h, k);
@@ -106,15 +125,15 @@ void
 
             sprintf(cli.buffer->content,
                     default_response, 
+                    a,
                     _content.via.raw.size, 
-                    _content.via.raw.ptr);
+                    b);
 
             cli.buffer->length = strlen(cli.buffer->content);
             cli.buffer->where = 0;
 
             debug_print("Response to: %d Content:%s\n", cli.fd, 
                                         rio_buffer_get_data(cli.buffer));
-
 
             msgpack_unpacked_destroy(&result);
             msgpack_unpacker_destroy(&pac);
