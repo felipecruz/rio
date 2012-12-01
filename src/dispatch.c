@@ -68,7 +68,7 @@ void
 //    zmq_poll (items, 1, 0);
 
     zmq_msg_init(&msg);
-    while ((rc = zmq_recvmsg(subscriber, &msg, ZMQ_NOBLOCK)) == 0) {
+    while ((rc = zmq_recvmsg(subscriber, &msg, ZMQ_NOBLOCK)) > 0) {
         debug_print("ZMQ message length: %zu\n", zmq_msg_size(&msg));
         if (zmq_msg_size(&msg) > 0) {
             struct epoll_event ev;
@@ -114,7 +114,6 @@ void
             char* a = malloc(sizeof(char) * (len_content_type + 1));
             strncpy(a, _content_type.via.raw.ptr, len_content_type);
             a[len_content_type] = '\0';
-//            _content.via.raw.ptr[len_content] = '\0';
 
             k = kh_get(clients, h, fd);
             cli = kh_val(h, k);
@@ -149,7 +148,6 @@ void
             kh_value(h, k) = cli;
         }
     }
-    //closing zmq message
     zmq_msg_close(&msg);
 }
 
@@ -216,7 +214,6 @@ int
 
             return DISPATCH_AGAIN;
         }
-        //rc = zmq_sendmsg(publisher, &msg, ZMQ_NOBLOCK);
     }
     debug_print("zeromq send return: %d\n",rc);
 
