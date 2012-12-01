@@ -22,18 +22,9 @@ void
 void
     send_command(void *publisher, char *command)
 {
-    zmq_msg_t msg;
-    zmq_msg_init_size(&msg, strlen(command));
-    memcpy(zmq_msg_data(&msg), command, strlen(command));
-
-    int rc = zmq_send(publisher, &msg, 0);
-
-    if (rc == 0) {
-        //debug_print("Master command: %s\n", command);
-    }
-    //check rc != 0
-    zmq_msg_close(&msg);
+    zmq_send(publisher, command, strlen(command), ZMQ_DONTWAIT);
 }
+
 
 int main(int argc, char **args) {
 
