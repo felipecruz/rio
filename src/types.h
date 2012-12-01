@@ -5,7 +5,6 @@
 
 #ifndef __TYPES_H
 #define __TYPES_H
-
 typedef struct {
     int epoll_fd;
     char name[10];
