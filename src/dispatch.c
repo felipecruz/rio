@@ -70,7 +70,7 @@ void
 //    zmq_poll (items, 1, 0);
 
     zmq_msg_init(&msg);
-    while ((rc = zmq_recv(subscriber, &msg, ZMQ_NOBLOCK)) == 0) {
+    while ((rc = zmq_recvmsg(subscriber, &msg, ZMQ_NOBLOCK)) == 0) {
         debug_print("ZMQ message length: %zu\n", zmq_msg_size(&msg));
         if (zmq_msg_size(&msg) > 0) {
             struct epoll_event ev;
@@ -171,7 +171,7 @@ int
 
     for(int i = 0; i < zlist_size(queue); i++) {
         pmsg = zlist_pop(queue);
-        rc = zmq_send(publisher, pmsg, ZMQ_NOBLOCK);
+        rc = zmq_sendmsg(publisher, pmsg, ZMQ_NOBLOCK);
         if (rc < 0) {
             zlist_append(temp, pmsg);
         } else {
@@ -182,7 +182,7 @@ int
     while((pmsg = zlist_pop(temp)))
         zlist_append(queue, pmsg);
 
-    rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
+    rc = zmq_sendmsg(publisher, &msg, ZMQ_NOBLOCK);
     if (rc < 0) { 
         if (zmq_errno() == EAGAIN) {
             debug_print("zmq send EAGAIN on %d .. queueing\n", cli->fd);
@@ -199,7 +199,7 @@ int
 
             return DISPATCH_AGAIN;
         }
-        //rc = zmq_send(publisher, &msg, ZMQ_NOBLOCK);
+        //rc = zmq_sendmsg(publisher, &msg, ZMQ_NOBLOCK);
     }
     debug_print("zeromq send return: %d\n",rc);
 

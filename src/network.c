@@ -1,6 +1,6 @@
 #include "network.h"
 #include "buffer.h"
-#include "websocket.h"
+#include "cws.h"
 
 int eag = 0;
 
@@ -127,7 +127,6 @@ int
     ssize_t received = 0;
     ssize_t total_received = 0;
 
-    //allocate space for data
     cli->buffer = new_rio_buffer_size(sizeof(char) * 4096);
 
     debug_print("Handle Read from %d\n", cli->fd);
@@ -149,7 +148,7 @@ int
                 debug_print("EAGAIN on recv from fd: %d\n", cli->fd);
 
                 //if EAGAIN, insert on epoll again
-                ev->events = EPOLLIN | EPOLLET;
+                ev->events = EPOLLIN | EPOLLERR;
                 //add socket to epoll
                 if (epoll_ctl(worker->epoll_fd,
                                 EPOLL_CTL_MOD,
@@ -213,10 +212,7 @@ void
     size_t n;
 
     if (event.events & EPOLLIN) {
-        //handle read
         int received = handle_read(worker, cli, &event);
-
-        //create http parser
         http_parser *parser = malloc(sizeof(http_parser));
 
         if (!parser){
@@ -224,11 +220,8 @@ void
         }
 
         http_parser_init(parser, HTTP_REQUEST);
-
-        //set parser data
         parser->data = (void*)cli;
 
-        //execute http parsing only if data was read
         if (received > 0) {
             debug_print("Execute http parsing client: %d\n", cli->fd);
             n = http_parser_execute(parser,
@@ -241,19 +234,13 @@ void
             //#TODO: what to do?
         } else if (received == 0) { // client disconnected!
             debug_print("Client %d Disconnected!\n", cli->fd);
-
-            //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
-
             free(parser);
             return;
         } else if (n != received) {
             debug_print("Error parsing, closing socket n:%zu received:%d\n",
                         n, received);
-
-            //delete fd from epoll and close
             remove_and_close(cli, worker, &event);
-
             free(parser);
             return;
         }
@@ -272,7 +259,6 @@ void
         cli->path = NULL;
         free(parser);
     } else if (event.events & EPOLLOUT) {
-        //if socket is ready to write, do it!
         do_write(worker, cli, &event);
     }
 }
@@ -308,34 +294,28 @@ int
     int arg;
     struct sockaddr_in sin;
 
-    //bind
     memset(&sin, 0, sizeof(struct sockaddr_in));
     sin.sin_family = AF_INET;
     sin.sin_port = htons(80);
     sin.sin_addr.s_addr = inet_addr("0.0.0.0");
 
-    //create socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         error_exit("Could not create socket.");
     }
 
-    //set socket non-blocking
     if (fcntl(server_fd, F_SETFL, O_NONBLOCK) == -1) {
         error_exit("Could not set socket non-blocking");
     }
 
-    //set socket options
     arg = 1;
     if (setsockopt (server_fd, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(arg)) == -1) {
         error_exit("Socket options");
     }
 
-    //bind socket to local addr
     if (bind(server_fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         error_exit("bind");
     }
 
-    //listen on this socket
     if (listen(server_fd, MAX_EVENTS) < 0) {
         error_exit("listen");
     }
@@ -360,17 +340,15 @@ void
 
     client_len = sizeof(temp_client);
 
-    //accept client connection
     new_connection_socket = accept(runtime->server_fd,
                                   (struct sockaddr *) &temp_client,
                                    &client_len);
 
     if (new_connection_socket == -1) {
-        //#TODO what to do?
-        error_exit("Could not accept socket");
+        debug_print("Error accepting connection", new_connection_socket);
+        return;
     }
 
-    //check sockets flags and set non-blocking after
     if (-1 == (flags = fcntl(new_connection_socket, F_GETFL, 0))) {
         flags = 0;
     }
@@ -379,10 +357,9 @@ void
         error_exit("Could not set client socket non-blocking");
     }
 
-    ev.events = EPOLLIN | EPOLLET;
+    ev.events = EPOLLIN | EPOLLERR;
     ev.data.fd = new_connection_socket;
 
-    //add socket to epoll
     if (epoll_ctl(worker->epoll_fd,
                   EPOLL_CTL_ADD,
                   new_connection_socket,
@@ -390,7 +367,6 @@ void
         error_exit("Could not add conn_sock to epoll");
     }
 
-    //store client information
     cli.fd = new_connection_socket;
     cli.websocket = 0;
     cli.buffer = NULL;
@@ -426,17 +402,14 @@ void
     zmq_setsockopt(worker->master, ZMQ_SUBSCRIBE, "", strlen(""));
     zmq_connect(worker->master, "ipc:///tmp/rio_master.sock");
 
-    //create epoll
     worker->epoll_fd = epoll_create(MAX_EVENTS);
     if (worker->epoll_fd == -1) {
         error_exit("epoll_create");
     }
 
-    //configure epoll events and file descriptor
-    ev.events = EPOLLIN | EPOLLPRI;
+    ev.events = EPOLLIN | EPOLLERR | EPOLLPRI;
     ev.data.fd = runtime->server_fd;
 
-    //add listen socket to epoll
     if (epoll_ctl(worker->epoll_fd,
                   EPOLL_CTL_ADD,
                   runtime->server_fd,
@@ -445,7 +418,6 @@ void
     }
 
     while (1) {
-        //poll events
         size_epoll_events = epoll_wait(worker->epoll_fd,
                                        events,
                                        MAX_EVENTS,
@@ -456,36 +428,29 @@ void
         }
 
         for (int n = 0; n < size_epoll_events; ++n) {
-            //if event fd == server fd -> accept new connection
             if (events[n].data.fd == runtime->server_fd) {
                 accept_incoming_connection(runtime, worker);
-            } else { //handle in out readyness :)
-                //retrieve client info by fd and handle event
+            } else {
                 k = kh_get(clients, h, events[n].data.fd);
                 cli = kh_val(h, k);
                 handle_http(worker, events[n], &cli);
             }
         }
-        //dispatch responses
         dispatch_responses(worker);
 
-        //look for master messages
         zmq_msg_t msg;
         zmq_msg_init(&msg);
-        rc = zmq_recv(worker->master, &msg, ZMQ_NOBLOCK);
-        if (rc == 0) {
+        rc = zmq_recvmsg(worker->master, &msg, ZMQ_NOBLOCK);
+        if (rc > 0) {
             debug_print("Worker %d Received %s from master\n",
                                             id,
                                             (char *) zmq_msg_data(&msg));
+            if (strcmp((char *) zmq_msg_data(&msg), "terminate") == 0) {
+                zmq_msg_close(&msg);
+                break;
+            }
         }
-
-        if (strcmp((char *) zmq_msg_data(&msg), "terminate") == 0) {
-            zmq_msg_close(&msg);
-            break;
-        }
-
         zmq_msg_close(&msg);
-
     }
     debug_print("\nWorker terminating gracefully\n", worker);
 
