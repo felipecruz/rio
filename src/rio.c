@@ -26,8 +26,9 @@ void
 }
 
 
-int main(int argc, char **args) {
+int main (int argc, char **args) {
 
+    pid_t pid;
     rio_runtime *runtime;
 
     printf(" _ __  _   ___  \n");
@@ -61,7 +62,6 @@ int main(int argc, char **args) {
                 //handle error
                 break;
             case 0:
-                //handle child
                 run_worker(i, runtime->workers[i], runtime);
                 _exit(0);
             default:
@@ -73,10 +73,6 @@ int main(int argc, char **args) {
     runtime->publisher = zmq_socket(runtime->zmq_context,
                                     ZMQ_PUB);
     zmq_bind(runtime->publisher, "ipc:///tmp/rio_master.sock");
-
-    //run_master(runtime);
-
-    //debug_print("Running Master\n", runtime);
 
     while (1) {
         int rc;
@@ -92,8 +88,9 @@ int main(int argc, char **args) {
         sleep(5);
     }
 
-    //debug_print("Waiting for workers\n", runtime);
-    wait(NULL);
+    for (int i = 0; i < WORKERS; i++) {
+        pid = waitpid(runtime->workers[i]->pid, &status, 0);
+    }
     
     debug_print("Freeing workers\n", runtime);
     for (int i = 0; i < WORKERS; i++) {
