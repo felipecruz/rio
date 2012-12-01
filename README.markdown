@@ -15,7 +15,7 @@ If you're looking for similar projects, you should check:
 External Dependencies and thanks to the Authors of:
 ------------
 
-* zeromq (http://zeromq.org) 
+* zeromq >= 3.2.2 (http://zeromq.org) 
 * msgpack (http://msgpack.org)
 
 
@@ -86,7 +86,7 @@ Request format - rio to worker(s)
 
 Respose format - worker(s) to rio
 
-* [client_id, content/type, content] as int, string(not implemented yet), string
+* [client_id, content/type, content] as int, string, string
 
 A naive python worker
 
