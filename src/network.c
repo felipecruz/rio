@@ -421,7 +421,7 @@ void
         size_epoll_events = epoll_wait(worker->epoll_fd,
                                        events,
                                        MAX_EVENTS,
-                                       100);
+                                       0);
 
         if (size_epoll_events == -1 && errno != EWOULDBLOCK) {
             break;

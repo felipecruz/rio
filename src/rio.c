@@ -4,7 +4,7 @@
 
 #define WORKERS 1 
 
-short int INTERRUPTED = 0;
+static short int INTERRUPTED = 0;
 
 void
     sig_proc_exit(int sig)
@@ -28,6 +28,7 @@ void
 
 int main (int argc, char **args) {
 
+    int status;
     pid_t pid;
     rio_runtime *runtime;
 

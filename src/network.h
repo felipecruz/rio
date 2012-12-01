@@ -19,7 +19,7 @@
 #include "static.h"
 #include "buffer.h"
 
-#define MAX_EVENTS 128
+#define MAX_EVENTS 4096
 #ifndef __NETWORK_H
 #define __NETWORK_H
 int 
