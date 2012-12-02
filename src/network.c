@@ -357,6 +357,10 @@ void
         error_exit("Could not set client socket non-blocking");
     }
 
+    if (VALGRIND) {
+        memset(&ev, 0, sizeof(struct epoll_event));
+    }
+
     ev.events = EPOLLIN | EPOLLERR;
     ev.data.fd = new_connection_socket;
 
@@ -405,6 +409,10 @@ void
     worker->epoll_fd = epoll_create(MAX_EVENTS);
     if (worker->epoll_fd == -1) {
         error_exit("epoll_create");
+    }
+
+    if (VALGRIND) {
+        memset(&ev, 0, sizeof(struct epoll_event));
     }
 
     ev.events = EPOLLIN | EPOLLERR | EPOLLPRI;
