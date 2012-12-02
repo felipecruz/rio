@@ -1,4 +1,5 @@
 #include <strings.h>
+#include "zmq.h"
 #include "czmq.h"
 #include "buffer.h"
 #include "dispatch.h"
@@ -24,7 +25,7 @@ void
 {
     debug_print("Initializing zmq context and publisher\n", context);
     
-    context = zmq_init(1);
+    context = zmq_ctx_new();
     
     publisher = zmq_socket(context, ZMQ_PUSH);
     subscriber =  zmq_socket(context, ZMQ_PULL);
@@ -46,7 +47,7 @@ void
     ret = zmq_close(subscriber);
     debug_print("Dispatcher Subscriber Socket close return %d\n", ret);
     
-    ret = zmq_term(context);
+    ret = zmq_ctx_destroy(context);
     debug_print("Dispatcher Context termination return :%d\n", ret);
 
     zlist_destroy(&queue);
