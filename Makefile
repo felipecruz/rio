@@ -10,13 +10,13 @@ all: http_parser.o cws.o
 	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           src/utils.c src/buffer.c src/dispatch.c \
           src/static.c src/network.c src/rio.c \
-          $(FAST) $(LIBS) $(CFLAGS) -o rio -DDEBUG=0
+          $(FAST) $(LIBS) $(CFLAGS) -o rio -DDEBUG=0 -DVALGRIND=0
 
 debug: http_parser.o cws.o
 	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
              src/static.c src/network.c src/rio.c \
-             $(LIBS) $(CFLAGS) -o rio -DDEBUG=1
+             $(LIBS) $(CFLAGS) -o rio -DDEBUG=1 -DVALGRIND=0
 
 leak: http_parser.o cws.o
 	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
