@@ -8,32 +8,33 @@
 typedef struct {
     int epoll_fd;
     char name[10];
-    pid_t pid;
     void *zmq_context;
     void *master;
+    pid_t pid;
 } rio_worker;
 
 typedef struct {
     int server_fd;
-    rio_worker **workers;
     void *zmq_context;
     void *publisher;
+    rio_worker **workers;
 } rio_runtime;
 
 typedef struct {
-    uint8_t *content;
-    size_t length;
     int where;
     int read_count;
+    uint8_t *content;
+    size_t length;
 } rio_buffer;
 
 typedef struct {
     int fd;
     int keep_alive;
+    int websocket;
+    int eagain;
     char *path;
     unsigned char method;
     rio_buffer *buffer;
-    int websocket;
 } rio_client;
 
 KHASH_MAP_INIT_INT(clients, rio_client)
