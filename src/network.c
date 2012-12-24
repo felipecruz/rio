@@ -400,7 +400,7 @@ void
     init_dispatcher();
     init_static_server();
 
-    worker->zmq_context = zmq_init(1);
+    worker->zmq_context = zmq_ctx_new();
     worker->master = zmq_socket(worker->zmq_context, ZMQ_SUB);
 
     zmq_setsockopt(worker->master, ZMQ_SUBSCRIBE, "", strlen(""));
@@ -465,7 +465,7 @@ void
     rc = zmq_close(worker->master);
     debug_print("Worker ZMQ Socket close return %d\n", rc);
 
-    rc = zmq_term(worker->zmq_context);
+    rc = zmq_ctx_destroy(worker->zmq_context);
     debug_print("Worker ZMQ Context termination return :%d\n", rc);
 
     free_clients();

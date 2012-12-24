@@ -70,7 +70,7 @@ int main (int argc, char **args) {
         }
     }
                 
-    runtime->zmq_context = zmq_init(1);
+    runtime->zmq_context = zmq_ctx_new();
     runtime->publisher = zmq_socket(runtime->zmq_context,
                                     ZMQ_PUB);
     zmq_bind(runtime->publisher, "ipc:///tmp/rio_master.sock");
@@ -101,7 +101,7 @@ int main (int argc, char **args) {
     int rc = zmq_close(runtime->publisher);
     debug_print("Master ZMQ Socket close return %d\n", rc);
     
-    rc = zmq_term(runtime->zmq_context);
+    rc = zmq_ctx_destroy(runtime->zmq_context);
     debug_print("Master ZMQ Context termination return :%d\n", rc);   
 
     free(runtime->workers);
