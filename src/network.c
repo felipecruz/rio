@@ -453,9 +453,11 @@ void
             debug_print("Worker %d Received %s from master\n",
                                             id,
                                             (char *) zmq_msg_data(&msg));
-            if (strcmp((char *) zmq_msg_data(&msg), "terminate") == 0) {
-                zmq_msg_close(&msg);
-                break;
+            if (rc == 9) {
+                if (strncmp((char *) zmq_msg_data(&msg), "terminate", 9) == 0) {
+                    zmq_msg_close(&msg);
+                    break;
+                }
             }
         }
         zmq_msg_close(&msg);
