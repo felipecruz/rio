@@ -26,10 +26,10 @@ leak: http_parser.o cws.o
 		   sudo valgrind --leak-check=full ./rio
 
 test: http_parser.o cws.o
-	$(CC) -I cws/src -I src/ http-parser/http_parser.o cws/b64.o cws/cws.o \
+	$(CC) -I cws/src http-parser/http_parser.o cws/b64.o cws/cws.o \
           -g src/utils.c src/buffer.c src/dispatch.c \
              src/static.c src/network.c tests/tests.c \
-             $(LIBS) $(CFLAGS) -lcunit -o test_rio -DDEBUG=1 -DTEST=1
+             $(LIBS) $(CFLAGS) -lcunit -o test_rio -DDEBUG=1 -DTEST=1 -DVALGRIND=0
 	./test_rio
 
 clean:
