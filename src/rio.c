@@ -64,6 +64,11 @@ int main (int argc, char **args) {
                 break;
             case 0:
                 run_worker(i, runtime->workers[i], runtime);
+                for (int i = 0; i < WORKERS; i++)
+                    free(runtime->workers[i]);
+                free(runtime->workers);
+                close(runtime->server_fd);
+                free(runtime);
                 _exit(0);
             default:
                 debug_print("Master after fork\n", runtime);
@@ -81,7 +86,6 @@ int main (int argc, char **args) {
         if (INTERRUPTED != 0) {
             debug_print("Sending terminate!\n", runtime);
             send_command(runtime->publisher, "terminate");
-            //terminate workers and exit gracefully
             break;
         }
 
@@ -109,5 +113,4 @@ int main (int argc, char **args) {
     free(runtime);
 
     exit(0);
-
 }
